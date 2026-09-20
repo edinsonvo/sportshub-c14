@@ -1,0 +1,43 @@
+# Dependencias y builds
+node_modules/
+.next/
+out/
+backend/target/
+*.class
+*.log
+npm-debug.log*
+coverage/
+.vercel
+
+# Entornos
+.env
+.env.local
+.env*.local
+backend/.env
+frontend/.env
+
+# Python (azure-devops/backlog)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# SO
+.DS_Store
+Thumbs.db
+
+# Editores/temporales
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+
+# Reportes de seguridad (OWASP dependency-check genera archivos)
+dependency-check-report.html
+*.sarif

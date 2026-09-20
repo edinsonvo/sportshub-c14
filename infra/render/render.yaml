@@ -1,0 +1,54 @@
+# Render Blueprint — SportHub (Caso 14). Perfil avanzado, despliegue en nube.
+# Uso: ajustar el repo y crear el blueprint desde "New + -> Blueprint".
+
+databases:
+  - name: sporthub-db
+    databaseName: sporthub
+    user: sporthub
+    plan: free
+
+services:
+  - type: web
+    name: sporthub-backend
+    runtime: docker
+    repo: https://github.com/<org>/sporthub  # REEMPLAZAR
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DB_URL
+        fromDatabase:
+          name: sporthub-db
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false # definir en el panel (mín. 32 bytes)
+      - key: MAX_LOGIN_ATTEMPTS
+        value: "5"
+      - key: LOGIN_LOCKOUT_MINUTES
+        value: "30"
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          name: sporthub-frontend
+          type: web
+          property: host
+      - key: JPA_DDL_AUTO
+        value: update
+
+  - type: web
+    name: sporthub-frontend
+    runtime: docker
+    repo: https://github.com/<org>/sporthub  # REEMPLAZAR
+    rootDir: frontend
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          name: sporthub-backend
+          type: web
+          property: url
+      - key: NEXT_PUBLIC_DEMO_SERVICE_ID
+        value: 8f0a1e2d-3b4c-5d6e-7f80-9a1b2c3d4e5f

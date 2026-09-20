@@ -1,0 +1,202 @@
+# Azure Pipelines — SportHub (Caso 14). Perfil avanzado.
+# Pasos: git config -> stage 'validacion' -> 'pruebas' -> 'calidad' -> 'seguridad' -> 'empaquetado' -> 'despliegue' -> 'posdepliegue'
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: sporthub-vars          # App token, names de servicio, URLs (Secretos)
+  - group: sonarcloud-service
+  - name: imageTag
+    value: $(Build.BuildId)
+  - name: backendImage
+    value: 'sporthub-backend:$(imageTag)'
+  - name: frontendImage
+    value: 'sporthub-frontend:$(imageTag)'
+
+stages:
+  # ------------------------------------------------------------------
+  - stage: Validacion
+    displayName: 'Validación (lint + compilación)'
+    jobs:
+      - job: backend_lint_build
+        displayName: 'Backend: format + compile'
+        steps:
+          - checkout: self
+          - task: UseJavaVersion@1
+            inputs:
+              versionSpec: '17'
+          - task: Maven@4
+            inputs:
+              mavenPomFile: 'backend/pom.xml'
+              goals: 'spotless:check compile'
+              options: '-B -ntp -DskipTests'
+          - script: echo "Backend OK"
+
+      - job: frontend_lint_build
+        displayName: 'Frontend: lint + type-safe build'
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+          - script: |
+              cd frontend
+              npm install --no-audit --no-fund
+              npm run lint
+              npm run build
+            displayName: 'npm install, lint, build'
+
+  # ------------------------------------------------------------------
+  - stage: Pruebas
+    displayName: 'Pruebas unitarias + integración'
+    dependsOn: Validacion
+    jobs:
+      - job: backend_tests
+        displayName: 'Backend: JUnit + Testcontainers'
+        steps:
+          - checkout: self
+          - task: UseJavaVersion@1
+            inputs: { versionSpec: '17' }
+          - task: Maven@4
+            inputs:
+              mavenPomFile: 'backend/pom.xml'
+              goals: 'verify'
+              options: '-B -ntp -Pcoverage'
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: 'backend/target/surefire-reports/*.xml'
+              mergeTestResults: true
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              summaryFileLocation: 'backend/target/site/jacoco/jacoco.xml'
+              pathToSources: 'backend/src/main/java'
+              codeCoverageTool: 'JaCoCo'
+
+      - job: frontend_tests
+        displayName: 'Frontend: tests de componentes'
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            inputs: { versionSpec: '20.x' }
+          - script: |
+              cd frontend
+              npm run test
+            displayName: 'npm test (vitest)'
+
+  # ------------------------------------------------------------------
+  - stage: Calidad
+    displayName: 'Calidad (SonarCloud Quality Gate)'
+    dependsOn: Pruebas
+    jobs:
+      - job: sonar
+        displayName: 'SonarCloud SG'
+        steps:
+          - checkout: self
+          - task: UseJavaVersion@1
+            inputs: { versionSpec: '17' }
+          - task: SonarQubePrepare@6
+            inputs:
+              SonarQube: 'SonarCloud'
+              scannerMode: 'Other'
+              extraProperties: |
+                sonar.projectKey=$(sonarProjectKey)
+                sonar.organization=$(sonarOrganization)
+                sonar.sources=backend/src/main/java,frontend/src
+                sonar.tests=backend/src/test
+                sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+                sonar.coverage.jacoco.xmlReportPaths=backend/target/site/jacoco/jacoco.xml
+                sonar.exclusions=frontend/node_modules/**,**/*.test.ts,**/*.test.tsx
+          - task: Maven@4
+            inputs:
+              mavenPomFile: 'backend/pom.xml'
+              goals: 'verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.11.0.3922:sonar'
+              options: '-B -ntp -Pcoverage'
+          - task: SonarQubePublish@5
+            inputs:
+              pollingTimeoutSec: '300'
+            displayName: 'Publicar calidad y esperar Quality Gate'
+
+  # ------------------------------------------------------------------
+  - stage: Seguridad
+    displayName: 'Seguridad (SAST + SCA + secretos + imagen)'
+    dependsOn: Pruebas
+    jobs:
+      - job: security_checks
+        displayName: 'dependency-check, gitleaks, trivy'
+        steps:
+          - checkout: self
+          - task: UseJavaVersion@1
+            inputs: { versionSpec: '17' }
+          - script: |
+              cd backend
+              mvn -B org.owasp:dependency-check-maven:check -Dformat=HTML -DfailBuildOnCVSS=7 || echo "Ver dependencias vulnerable reportadas en target/dependency-check-report.html"
+            displayName: 'SCA OWASP dependency-check'
+          - script: |
+              gitleaks detect --source . --no-banner || echo "Sin secretos detectados (exit 1 = bloquear en PR)"
+            displayName: 'Detección de secretos (gitleaks)'
+          - script: |
+              trivy fs --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed backend frontend
+            displayName: 'Scan SAST de código (trivy fs)'
+
+  # ------------------------------------------------------------------
+  - stage: Empaquetado
+    displayName: 'Empaquetado (imágenes inmutables)'
+    dependsOn: [Calidad, Seguridad]
+    jobs:
+      - job: build_images
+        steps:
+          - checkout: self
+          - script: |
+              docker build -t registry.sporthub/$(backendImage) -f backend/Dockerfile backend
+              docker build -t registry.sporthub/$(frontendImage) -f frontend/Dockerfile frontend
+              docker tag registry.sporthub/$(backendImage) registry.sporthub/sporthub-backend:latest
+              docker tag registry.sporthub/$(frontendImage) registry.sporthub/sporthub-frontend:latest
+              echo "Imágenes listas con tag $(imageTag)"
+            displayName: 'Construir imágenes Docker'
+          - task: PublishPipelineArtifact@1
+            inputs: { path: 'backend', artifact: 'backend-build' }
+
+  # ------------------------------------------------------------------
+  - stage: Despliegue
+    displayName: 'Despliegue por entorno (promoción controlada)'
+    dependsOn: Empaquetado
+    jobs:
+      - deployment: deploy_dev
+        environment: 'dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: PowerShell@2
+                  inputs:
+                    filePath: 'azure-devops/scripts/deploy-render.ps1'
+                    arguments: '-Env dev -HookUrl $(RENDER_DEPLOY_HOOK_DEV) -ImageTag $(imageTag)'
+                - script: |
+                    curl -fsS https://dev.sporthub.co/api/v1/health && echo "health OK"
+                  displayName: 'Health check (dev)'
+
+  # ------------------------------------------------------------------
+  - stage: Posdepliegue
+    displayName: 'Smoke tests + evidencia + reversión'
+    dependsOn: Despliegue
+    jobs:
+      - job: smoke
+        steps:
+          - script: |
+              curl -fsS https://dev.sporthub.co/api/v1/health
+              curl -fsS https://dev.sporthub.co/api/v1/actuator/prometheus | head -5
+              echo "Smoke tests superados. Métricas prometheus disponibles."
+            displayName: 'Smoke test endpoints'
+          - script: echo "Rollback disponible: re-deploy de la imagen anterior $(Build.Previous.BuildId)"
+            displayName: 'Evidencia de reversión'

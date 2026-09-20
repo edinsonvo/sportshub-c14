@@ -1,0 +1,92 @@
+networks:
+  sporthub:
+    driver: bridge
+
+volumes:
+  pgdata:
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-sporthub}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sporthub}
+      POSTGRES_DB: ${DB_NAME:-sporthub}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sporthub} -d ${DB_NAME:-sporthub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [sporthub]
+
+  backend:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-sporthub}
+      DB_USER: ${DB_USER:-sporthub}
+      DB_PASSWORD: ${DB_PASSWORD:-sporthub}
+      JWT_SECRET: ${JWT_SECRET:-d7ec8284371b0b4bd8b96e2d0d2b3c0d6d2d6b6f8c0e4a1e}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      MAX_LOGIN_ATTEMPTS: 5
+      LOGIN_LOCKOUT_MINUTES: 30
+      JPA_DDL_AUTO: update
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [sporthub]
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+        NEXT_PUBLIC_DEMO_SERVICE_ID: ${NEXT_PUBLIC_DEMO_SERVICE_ID:-8f0a1e2d-3b4c-5d6e-7f80-9a1b2c3d4e5f}    
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+      NEXT_PUBLIC_DEMO_SERVICE_ID: ${NEXT_PUBLIC_DEMO_SERVICE_ID:-8f0a1e2d-3b4c-5d6e-7f80-9a1b2c3d4e5f}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [sporthub]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+    depends_on: [backend]
+    networks: [sporthub]
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on: [prometheus]
+    networks: [sporthub]

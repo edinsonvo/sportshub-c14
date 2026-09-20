@@ -1,0 +1,332 @@
+﻿ID,WorkItemType,Titulo,Epic,Feature,Prioridad,Sprint,CriteriosAceptacion
+,Epic,E1 - Cuentas de usuario,E1,,Must,,"Gestión de cuentas, autenticación y perfiles de clientes"
+,Epic,E2 - Cuentas de proveedor,E2,,Must,,"Registro, KYC y autorización de proveedores"
+,Epic,E3 - Servicios y agenda,E3,,Must,,"Catálogo de servicios, horarios y asignación de personal"
+,Epic,E4 - Personal operativo,E4,,Must,,"Registro, disponibilidad y validaciones del personal"
+,Epic,E5 - Reservas (citas),E5,,Must,,Ciclo de vida de las reservas
+,Epic,E6 - Historial y filtros,E6,,Must,,Historiales de citas y consultas filtradas
+,Epic,E7 - Reportes,E7,,Must,,Reportes y exportación de uso de servicios
+,Epic,E8 - Seguridad y transversal,E8,,Must,,"Autorización, auditoría, MFA, notificaciones y configuración"
+HU-01,User Story,Registrar cuenta de usuario,E1 Cuentas de usuario,Autenticación y perfil,Must,Sprint 1,"Característica: Registro de cuenta de usuario
+  Escenario: Registro exitoso
+    Dado que soy un visitante en la página de registro
+    Cuando diligencio correo, nombre, teléfono y una contraseña que cumple la política
+    Y acepto los términos y condiciones
+    Entonces el sistema crea la cuenta con rol CLIENT
+    Y envía un correo de confirmación
+  Escenario: Correo ya registrado
+    Dado que existe una cuenta con el correo ""pepito@mail.com""
+    Cuando intento registrarme con ese correo
+    Entonces el sistema rechaza el registro con el error EMAIL_EN_USO"
+HU-02,User Story,Actualizar datos del usuario,E1 Cuentas de usuario,Autenticación y perfil,Must,,"Característica: Actualización de datos
+  Escenario: Actualización exitosa
+    Dado que soy un cliente autenticado
+    Cuando actualizo mi nombre y teléfono
+    Entonces el sistema guarda los cambios y muestra confirmación
+  Escenario: Correo duplicado
+    Dado que otro usuario usa el correo destino
+    Cuando intento cambiarlo
+    Entonces el sistema rechaza el cambio con EMAIL_EN_USO"
+HU-03,User Story,Consultar perfil de la cuenta de usuario,E1 Cuentas de usuario,Autenticación y perfil,Must,,"Característica: Consulta de perfil
+  Escenario: Ver perfil
+    Dado que estoy autenticado
+    Cuando consulto mi perfil
+    Entonces veo mis datos personales, roles y estado de la cuenta"
+HU-04,User Story,Desactivar temporalmente la cuenta,E1 Cuentas de usuario,Autenticación y perfil,Should,,"Característica: Desactivación temporal
+  Escenario: Desactivar cuenta
+    Dado que estoy autenticado
+    Cuando desactivo temporalmente mi cuenta
+    Entonces no puedo iniciar sesión hasta reactivarla
+  Escenario: Reactivación
+    Dado que desactivé mi cuenta
+    Cuando vuelvo a iniciar sesión
+    Entonces el sistema reactiva la cuenta y registra el evento"
+HU-05,User Story,Eliminar cuenta de usuario,E1 Cuentas de usuario,Autenticación y perfil,Should,,"Característica: Eliminación de cuenta
+  Escenario: Eliminación con confirmación
+    Dado que estoy autenticado
+    Cuando solicito eliminar mi cuenta y confirmo
+    Entonces el sistema elimina el acceso y anonimiza datos personales
+    Y registra la acción en auditoría"
+HU-06,User Story,Registrar cuenta de proveedor,E2 Cuentas de proveedor,Registro y KYC,Must,Sprint 1,"Característica: Registro de proveedor
+  Escenario: Registro exitoso
+    Dado que soy un visitante proveedor
+    Cuando diligencio datos del negocio, documento y correo de contacto
+    Entonces el sistema crea la cuenta con rol PROVIDER en estado pendiente de verificación"
+HU-07,User Story,Actualizar datos del proveedor,E2 Cuentas de proveedor,Registro y KYC,Must,,"Característica: Actualización de proveedor
+  Escenario: Edición exitosa
+    Dado que soy un proveedor autenticado
+    Cuando actualizo la descripción del negocio
+    Entonces el sistema guarda los cambios"
+HU-08,User Story,Verificar identidad del proveedor,E2 Cuentas de proveedor,Registro y KYC,Must,,"Característica: Verificación de identidad
+  Escenario: Verificación aprobada
+    Dado que un proveedor cargó su documento
+    Cuando el administrador aprueba la verificación
+    Entonces el proveedor queda habilitado para publicar servicios"
+HU-09,User Story,Verificar identidad del proveedor de forma periódica,E2 Cuentas de proveedor,Registro y KYC,Must,,"Característica: Re-verificación periódica
+  Escenario: Vigencia vencida
+    Dado que la verificación del proveedor venció
+    Cuando el sistema ejecuta el control periódico
+    Entonces el proveedor queda en estado pendiente de verificación
+    Y se le notifica por correo"
+HU-10,User Story,Eliminar proveedor,E2 Cuentas de proveedor,Registro y KYC,Should,,"Característica: Eliminación de proveedor
+  Escenario: Eliminación con auditoría
+    Dado que soy un proveedor autenticado
+    Cuando elimino mi cuenta de proveedor confirmando la acción
+    Entonces se desactivan sus servicios, personal y agendas
+    Y la acción queda en auditoría"
+HU-11,User Story,Cargar logotipo y fotos del proveedor,E2 Cuentas de proveedor,Registro y KYC,Should,,"Característica: Carga de imágenes
+  Escenario: Subida válida
+    Dado que soy proveedor autenticado
+    Cuando subo un logotipo en formato permitido y menor a 2MB
+    Entonces el sistema lo guarda en el repositorio de recursos y lo muestra"
+HU-12,User Story,Iniciar sesión,E1 Cuentas de usuario,Autenticación y perfil,Must,Sprint 1,"Característica: Inicio de sesión
+  Escenario: Credenciales correctas
+    Dado que tengo una cuenta activa
+    Cuando ingreso credenciales correctas
+    Entonces el sistema retorna un token JWT con expiración y el rol
+  Escenario: Bloqueo por intentos
+    Dado que intento con credenciales incorrectas
+    Cuando fallo 5 veces consecutivas
+    Entonces la cuenta se bloquea 30 minutos
+    Y se registra el evento de seguridad"
+HU-13,User Story,Cerrar sesión de forma segura,E1 Cuentas de usuario,Autenticación y perfil,Must,,"Característica: Cierre de sesión
+  Escenario: Cerrar sesión
+    Dado que estoy autenticado
+    Cuando cierro sesión
+    Entonces el token se revoca y la sesión queda inactiva en el dispositivo"
+HU-14,User Story,Cambiar contraseña,E1 Cuentas de usuario,Autenticación y perfil,Must,,"Característica: Cambio de contraseña
+  Escenario: Cambio válido
+    Dado que estoy autenticado
+    Cuando ingreso la contraseña actual y una nueva que cumple la política
+    Entonces el sistema actualiza el hash y me desloguea de otros dispositivos"
+HU-15,User Story,Recuperar contraseña,E1 Cuentas de usuario,Autenticación y perfil,Must,,"Característica: Recuperación de contraseña
+  Escenario: Enlace de recuperación
+    Dado que olvidé mi contraseña
+    Cuando solicito recuperación con mi correo registrado
+    Entonces recibo un enlace temporal de un solo uso para restablecerla"
+HU-16,User Story,Recordar sesión en el dispositivo,E1 Cuentas de usuario,Autenticación y perfil,Could,,"Característica: Recordar sesión
+  Escenario: Mantener sesión
+    Dado que marco la opción recordar sesión al iniciar sesión
+    Cuando cierro el navegador
+    Entonces mi sesión permanece activa mediante refresh token seguro"
+HU-17,User Story,Registrar servicio,E3 Servicios y agenda,Catálogo,Must,,"Característica: Registro de servicio
+  Escenario: Servicio válido
+    Dado que soy un proveedor verificado
+    Cuando registro nombre, descripción, duración y precio
+    Entonces el sistema crea el servicio en estado inactivo hasta publicar"
+HU-18,User Story,Activar servicio,E3 Servicios y agenda,Catálogo,Must,,"Característica: Activación
+    Dado que tengo un servicio creado
+    Cuando lo activo y tiene al menos un horario definido
+    Entonces queda visible y reservable por clientes"
+HU-19,User Story,Autorización de proveedor,E2 Cuentas de proveedor,Seguridad,Must,Sprint 1,"Característica: Autorización de proveedor
+  Escenario: Operación restringida
+    Dado que soy proveedor autenticado
+    Cuando intento modificar servicios de otro proveedor
+    Entonces el sistema responde 403 FORBIDDEN
+  Escenario: MFA sensible
+    Dado que la operación es sensible
+    Cuando el sistema lo solicita
+    Entonces exige un segundo factor antes de continuar"
+HU-20,User Story,Consultar servicio,E3 Servicios y agenda,Catálogo,Must,,"Característica: Consulta de servicio
+  Escenario: Listar servicios
+    Dado que consulto el catálogo de un proveedor
+    Cuando aplico filtros de tipo o búsqueda
+    Entonces veo los servicios activos con precio, duración y disponibilidad"
+HU-21,User Story,Modificar servicio,E3 Servicios y agenda,Catálogo,Must,,"Característica: Modificación
+  Escenario: Edición exitosa
+    Dado que tengo un servicio propio
+    Cuando actualizo precio o duración
+    Entonces los cambios se aplican y se registran en auditoría"
+HU-22,User Story,Desactivar servicio,E3 Servicios y agenda,Catálogo,Must,,"Característica: Desactivación
+  Escenario: Desactivar
+    Dado que tengo un servicio activo
+    Cuando lo desactivo
+    Entonces deja de estar disponible para nuevas reservas
+    Y las citas futuras activas se notifican para reprogramar"
+HU-23,User Story,Definir horario del servicio,E3 Servicios y agenda,Agenda,Must,,"Característica: Definición de horario
+  Escenario: Horario válido
+    Dado que soy proveedor
+    Cuando defino días y rangos de atención para un servicio
+    Entonces el horario queda en agenda respetando la duración mínima de la cita"
+HU-24,User Story,Modificar horarios del servicio,E3 Servicios y agenda,Agenda,Must,,"Característica: Modificación de horarios
+  Escenario: Cambio con citas existentes
+    Dado que existen citas en el horario a modificar
+    Cuando el proveedor actualiza el horario
+    Entonces las citas conflictivas se marcan para reprogramación y se notifica"
+HU-25,User Story,Consultar agenda del servicio,E3 Servicios y agenda,Agenda,Must,,"Característica: Consulta de agenda
+  Escenario: Ver agenda
+    Dado que soy proveedor o personal
+    Cuando consulto la agenda de un servicio
+    Entonces veo franjas libres, reservadas y bloqueadas por día"
+HU-26,User Story,Bloquear horario en agenda,E3 Servicios y agenda,Agenda,Should,,"Característica: Bloqueo de horario
+  Escenario: Bloquear franja
+    Dado que tengo agenda activa
+    Cuando bloqueo una franja específica
+    Entonces deja de ofrecerse al público esa franja"
+HU-27,User Story,Modificar horario en una fecha específica,E3 Servicios y agenda,Agenda,Should,,"Característica: Excepción puntual
+  Escenario: Ajuste de fecha
+    Dado que tengo agenda semanal
+    Cuando ajusto el horario para una fecha puntual
+    Entonces se aplica solo a esa fecha sin alterar el patrón semanal"
+HU-28,User Story,Asignar personal a servicios específicos,E3 Servicios y agenda,Personal,Must,,"Característica: Asignación de personal
+  Escenario: Asignar
+    Dado que soy proveedor
+    Cuando asigno un miembro del personal a un servicio
+    Entonces ese personal queda disponible para reservas de ese servicio"
+HU-29,User Story,Registrar personal operativo,E4 Personal operativo,Gestión,Must,,"Característica: Registro de personal
+  Escenario: Registro válido
+    Dado que soy proveedor
+    Cuando registro a un miembro del personal con su cuenta y cargo
+    Entonces queda vinculado al proveedor con rol STAFF"
+HU-30,User Story,Consultar disponibilidad del personal,E4 Personal operativo,Gestión,Must,,"Característica: Disponibilidad
+  Escenario: Consultar agenda de personal
+    Dado que selecciono un personal y una fecha
+    Cuando consulto disponibilidad
+    Entonces veo sus franjas libres y ocupadas"
+HU-31,User Story,Validar superposición de horarios del personal,E4 Personal operativo,Gestión,Must,,"Característica: Validación de superposición
+  Escenario: Superposición rechazada
+    Dado que un personal ya tiene asignación en una franja
+    Cuando se intenta asignar otra simultánea
+    Entonces el sistema rechaza la asignación con el error SUPERPOSICION_HORARIO"
+HU-32,User Story,Notificar no disponibilidad del personal,E4 Personal operativo,Gestión,Should,,"Característica: Notificación de indisponibilidad
+  Escenario: Ausencia reportada
+    Dado que un personal marca no disponibilidad
+    Cuando el sistema lo detecta
+    Entonces notifica al proveedor y a los clientes con citas afectadas"
+HU-33,User Story,Consultar disponibilidad de citas,E5 Reservas,Citas,Must,,"Característica: Disponibilidad de citas
+  Escenario: Franjas disponibles
+    Dado que selecciono servicio, personal y fecha
+    Cuando consulto disponibilidad
+    Entonces el sistema retorna las franjas libres según duración y horarios"
+HU-34,User Story,Agendar cita,E5 Reservas,Citas,Must,Sprint 1,"Característica: Agendar cita
+  Escenario: Cita creada
+    Dado que soy un cliente autenticado y el horario está libre
+    Cuando confirmo el agendamiento
+    Entonces el sistema crea la reserva SOLICITADA
+    Y notifica al proveedor
+  Escenario: Horario ocupado
+    Dado que el horario tiene una reserva activa
+    Cuando intento agendarlo
+    Entonces el sistema responde 409 HORARIO_OCUPADO
+    Y sugiere alternativas"
+HU-35,User Story,Consultar citas programadas,E5 Reservas,Citas,Must,,"Característica: Citas programadas
+  Escenario: Listado
+    Dado que estoy autenticado como cliente o personal
+    Cuando consulto mis citas
+    Entonces veo las próximas citas con estado, fecha y servicio"
+HU-36,User Story,Reprogramar cita,E5 Reservas,Citas,Must,,"Característica: Reprogramación
+  Escenario: Reprogramar a franja libre
+    Dado que tengo una cita SOLICITADA o CONFIRMADA
+    Cuando solicito reprogramar a una franja libre
+    Entonces la cita cambia a REPROGRAMADA con la nueva fecha
+    Y se notifica a ambas partes"
+HU-37,User Story,Cancelar cita,E5 Reservas,Citas,Must,,"Característica: Cancelación por cliente
+  Escenario: Cancelar dentro de la política
+    Dado que tengo una cita programada
+    Cuando la cancelo dentro de la ventana permitida
+    Entonces la cita pasa a CANCELADA
+    Y se notifica al proveedor"
+HU-38,User Story,Consultar listado de citas,E5 Reservas,Citas,Must,,"Característica: Listado de citas
+  Escenario: Consulta paginada
+    Dado que soy proveedor o administrador
+    Cuando consulto el listado de citas
+    Entonces veo las citas paginadas y filtrables por estado y fecha"
+HU-39,User Story,Registrar finalización de cita,E5 Reservas,Citas,Must,,"Característica: Finalización
+  Escenario: Completar cita
+    Dado que la cita está CONFIRMADA
+    Cuando el personal registra la finalización
+    Entonces la cita pasa a COMPLETADA
+    Y cuenta para los reportes de ocupación"
+HU-40,User Story,Confirmar solicitud de cita,E5 Reservas,Citas,Must,,"Característica: Confirmación
+  Escenario: Confirmar
+    Dado que existe una cita SOLICITADA
+    Cuando el proveedor la confirma
+    Entonces pasa a CONFIRMADA y se notifica al cliente"
+HU-41,User Story,Cancelar cita por imprevisto,E5 Reservas,Citas,Must,,"Característica: Cancelación por imprevisto
+  Escenario: Impedimento del proveedor
+    Dado que el proveedor tiene un imprevisto
+    Cuando cancela la cita por imprevisto
+    Entonces pasa a CANCELADA_POR_IMPREVISTO
+    Y se notifica al cliente con opción de reprogramar"
+HU-42,User Story,Consultar historial de citas personales,E6 Historial y filtros,Consulta,Must,,"Característica: Historial personal
+  Escenario: Ver historial
+    Dado que estoy autenticado como cliente
+    Cuando consulto mi historial
+    Entonces veo todas mis citas pasadas con sus estados"
+HU-43,User Story,Consultar historial de citas global,E6 Historial y filtros,Consulta,Must,,"Característica: Historial global
+  Escenario: Acceso administrador
+    Dado que soy administrador o proveedor
+    Cuando consulto el historial global
+    Entonces veo las citas de todos los clientes de mi alcance"
+HU-44,User Story,Filtrar citas personales por estado,E6 Historial y filtros,Consulta,Should,,"Característica: Filtro por estado
+  Escenario: Filtro
+    Dado que consulto mi historial
+    Cuando filtro por estado (completadas, canceladas…)
+    Entonces solo se muestran las de ese estado"
+HU-45,User Story,Filtrar historial de citas por personal,E6 Historial y filtros,Consulta,Should,,"Característica: Filtro por personal
+  Escenario: Filtro
+    Dado que soy proveedor
+    Cuando consulto el historial y filtro por personal
+    Entonces veo solo las citas de ese personal"
+HU-46,User Story,Filtrar historial de citas por cliente,E6 Historial y filtros,Consulta,Should,,"Característica: Filtro por cliente
+  Escenario: Filtro
+    Dado que soy proveedor
+    Cuando filtro el historial por cliente
+    Entonces veo solo las citas de ese cliente"
+HU-47,User Story,Filtrar historial de citas por rango de fechas,E6 Historial y filtros,Consulta,Should,,"Característica: Filtro por fechas
+  Escenario: Rango
+    Dado que consulto el historial
+    Cuando selecciono un rango de fechas
+    Entonces se retornan solo las citas dentro del rango"
+HU-48,User Story,Generar reporte de uso de servicios,E7 Reportes,Analítica,Must,,"Característica: Reporte de uso
+  Escenario: Generar reporte
+    Dado que soy proveedor o administrador
+    Cuando solicito el reporte de uso de servicios
+    Entonces veo ocupación, citas completadas y cancelaciones por servicio"
+HU-49,User Story,Filtrar reporte por rango de fechas,E7 Reportes,Analítica,Should,,"Característica: Filtro del reporte
+  Escenario: Rango de fechas
+    Dado que estoy en el reporte de uso
+    Cuando selecciono un rango
+    Entonces las métricas se recalculan para ese periodo"
+HU-50,User Story,Exportar informe de uso,E7 Reportes,Analítica,Should,,"Característica: Exportación
+  Escenario: Exportar CSV
+    Dado que tengo un reporte generado
+    Cuando pido exportar
+    Entonces el sistema descarga el informe en formato CSV"
+HU-51,User Story,Autorización de usuario,E1 Cuentas de usuario,Seguridad,Must,Sprint 1,"Característica: Autorización RBAC
+  Escenario: Acceso denegado
+    Dado que soy un usuario con rol CLIENT autenticado
+    Cuando intento acceder a un endpoint de administración
+    Entonces el sistema responde 403 FORBIDDEN
+    Y registra el evento en auditoría"
+HU-52,User Story,Notificar confirmación y recordatorio de cita,E8 Seguridad y transversal,Notificaciones,Should,,"Característica: Notificaciones de cita
+  Escenario: Confirmación y recordatorio
+    Dado que se confirma una cita
+    Cuando el sistema detecta la confirmación o la cercanía del evento
+    Entonces envía notificación por correo/telegram al cliente
+    Y queda registro en auditoría"
+HU-53,User Story,Notificar cancelación por imprevisto,E8 Seguridad y transversal,Notificaciones,Should,,"Característica: Notificación de imprevisto
+  Escenario: Avise al cliente
+    Dado que una cita pasa a CANCELADA_POR_IMPREVISTO
+    Cuando se procesa la cancelación
+    Entonces se notifica al cliente con motivo y opción de reprogramar"
+HU-54,User Story,Configurar parámetros de atención y políticas,E8 Seguridad y transversal,Configuración,Should,,"Característica: Parámetros del sistema
+  Escenario: Ajuste de configuración
+    Dado que soy administrador
+    Cuando ajusto ventanas de cancelación, horarios base e intentos de acceso
+    Entonces los parámetros se aplican sin recompilar el sistema"
+HU-55,User Story,Registrar auditoría de acciones sensibles,E8 Seguridad y transversal,Auditoría,Must,,"Característica: Auditoría
+  Escenario: Acción sensible
+    Dado que se ejecuta una acción sensible (eliminar cuenta, KYC, bloqueo)
+    Cuando finaliza la acción
+    Entonces se persiste quién, qué, cuándo y detalles en AUDIT_LOG"
+HU-56,User Story,Activar MFA para acceso administrativo,E8 Seguridad y transversal,Seguridad,Must,,"Característica: MFA administrativo
+  Escenario: Segundo factor
+    Dado que tengo rol ADMIN
+    Cuando inicio sesión correctamente
+    Entonces el sistema solicita un segundo factor (TOTP) antes de permitir acceso"
+HU-57,User Story,Optimizar consultas críticas e índices,E8 Seguridad y transversal,Rendimiento,Could,,"Característica: Rendimiento
+  Escenario: Consultas rápidas
+    Dado que existen datos de citas y disponibles
+    Cuando se consulta disponibilidad o historial
+    Entonces las consultas usan los índices definidos y responden ≤200 ms (p95)"
