@@ -53,16 +53,16 @@ function Crear-WorkItem {
 
 $rows = Import-Csv -Path $CsvPath -Encoding UTF8
 
-# 1) Crear épicas
+# 1) Crear épicas (clave = primer token del título: "E1")
 $epicIds = @{}
 foreach ($r in $rows | Where-Object { $_.WorkItemType -eq "Epic" }) {
     $id = Crear-WorkItem -Tipo "Epic" -Titulo $r.Titulo -Descripcion $r.CriteriosAceptacion -Prioridad "Must" -Sprint ""
-    $epicIds[$r.Epic] = $id
+    $epicIds[($r.Titulo -split " ")[0]] = $id
 }
 
-# 2) Crear historias bajo su épica
+# 2) Crear historias bajo su épica ($r.Epic = "E1 Cuentas de usuario" -> clave "E1")
 foreach ($r in $rows | Where-Object { $_.WorkItemType -ne "Epic" }) {
-    $parent = $epicIds[$r.Epic]
+    $parent = $epicIds[($r.Epic -split " ")[0]]
     if (-not $parent) { $parent = $epicIds.Values | Select-Object -First 1 }
     Crear-WorkItem -Tipo $r.WorkItemType -Titulo $r.Titulo -Descripcion $r.CriteriosAceptacion `
         -Prioridad $r.Prioridad -Sprint $r.Sprint -ParentId $parent | Out-Null

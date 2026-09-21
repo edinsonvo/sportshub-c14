@@ -7,6 +7,7 @@
 ,Epic,E6 - Historial y filtros,E6,,Must,,Historiales de citas y consultas filtradas
 ,Epic,E7 - Reportes,E7,,Must,,Reportes y exportación de uso de servicios
 ,Epic,E8 - Seguridad y transversal,E8,,Must,,"Autorización, auditoría, MFA, notificaciones y configuración"
+,Epic,E9 - Deportes e instalaciones (SportHub),E9,,Must,,"Instalaciones y canchas, clases grupales, membresías, alquiler de implementos y torneos"
 HU-01,User Story,Registrar cuenta de usuario,E1 Cuentas de usuario,Autenticación y perfil,Must,Sprint 1,"Característica: Registro de cuenta de usuario
   Escenario: Registro exitoso
     Dado que soy un visitante en la página de registro
@@ -330,3 +331,113 @@ HU-57,User Story,Optimizar consultas críticas e índices,E8 Seguridad y transve
     Dado que existen datos de citas y disponibles
     Cuando se consulta disponibilidad o historial
     Entonces las consultas usan los índices definidos y responden ≤200 ms (p95)"
+HU-58,User Story,Registrar instalación deportiva,E9 Deportes e instalaciones,Instalaciones y canchas,Must,Sprint 2,"Característica: Registro de instalación
+  Escenario: Alta válida
+    Dado que soy un proveedor verificado en el dominio deportivo
+    Cuando registro una instalación con tipo, capacidad y tarifas (cancha, sala, piscina, gimnasio)
+    Entonces el sistema la crea en estado inactivo hasta definir horarios
+    Y la acción queda en auditoría"
+HU-59,User Story,Consultar instalaciones y disponibilidad,E9 Deportes e instalaciones,Instalaciones y canchas,Must,,"Característica: Disponibilidad de instalaciones
+  Escenario: Catálogo con franjas
+    Dado que consulto el catálogo deportivo
+    Cuando selecciono una instalación y una fecha
+    Entonces veo sus franjas libres, ocupadas y bloqueadas por mantenimiento"
+HU-60,User Story,Reservar cancha o instalación por turno,E9 Deportes e instalaciones,Instalaciones y canchas,Must,Sprint 2,"Característica: Reserva de cancha
+  Escenario: Turno libre
+    Dado que soy un cliente autenticado
+    Cuando reservo un turno libre de una instalación por 60 minutos
+    Entonces se crea la reserva en estado SOLICITADA o CONFIRMADA según política
+    Y se aplica la regla de no choque de horarios RN-1 a la instalación
+  Escenario: Turno ocupado
+    Dado que el turno ya tiene una reserva activa
+    Cuando intento reservar la misma franja
+    Entonces el sistema responde 409 HORARIO_OCUPADO y sugiere alternativas"
+HU-61,User Story,Bloquear instalación por mantenimiento,E9 Deportes e instalaciones,Instalaciones y canchas,Should,,"Característica: Mantenimiento
+  Escenario: Bloqueo preventivo
+    Dado que soy administrador de instalaciones o proveedor
+    Cuando bloqueo una franja o rango por mantenimiento
+    Entonces esa franja deja de ofrecerse al público
+    Y se notifica a los clientes con turnos afectados"
+HU-62,User Story,Validar capacidad y activar lista de espera por instalación,E9 Deportes e instalaciones,Instalaciones y canchas,Could,,"Característica: Aforo
+    Dado que la instalación tiene una capacidad máxima
+    Cuando se alcanza el cupo de reservas o inscripciones
+    Entonces el sistema activa la lista de espera y lo informa al cliente"
+HU-63,User Story,Registrar clase grupal,E9 Deportes e instalaciones,Clases grupales,Must,,"Característica: Alta de clase
+    Dado que soy proveedor o entrenador
+    Cuando registro una clase con entrenador, horario, cupo y nivel
+    Entonces queda publicada y reservable para el cliente"
+HU-64,User Story,Inscribirse a clase grupal,E9 Deportes e instalaciones,Clases grupales,Must,,"Característica: Inscripción a clase
+  Escenario: Cupo disponible
+    Dado que soy un cliente autenticado
+    Cuando me inscribo a una clase con cupo disponible
+    Entonces el sistema confirma la inscripción y la registra
+  Escenario: Cupo lleno
+    Dado que la clase alcanzó su cupo máximo
+    Cuando intento inscribirme
+    Entonces el sistema me agrega a la lista de espera"
+HU-65,User Story,Cancelar inscripción a clase grupal,E9 Deportes e instalaciones,Clases grupales,Should,,"Característica: Baja de inscripción
+  Escenario: Cancelación dentro de la ventana
+    Dado que tengo una inscripción activa a una clase
+    Cuando la cancelo dentro de la ventana permitida
+    Entonces se libera el cupo
+    Y se ofrece a la lista de espera"
+HU-66,User Story,Gestionar lista de espera de clases,E9 Deportes e instalaciones,Clases grupales,Could,,"Característica: Lista de espera
+  Escenario: Liberación de cupo
+    Dado que existe una lista de espera en una clase
+    Cuando se libera un cupo
+    Entonces se notifica al siguiente de la lista y se le da plazo para aceptar"
+HU-67,User Story,Crear plan de membresía,E9 Deportes e instalaciones,Membresías,Must,,"Característica: Plan de membresía
+  Escenario: Plan válido
+    Dado que soy administrador o proveedor deportivo
+    Cuando creo un plan con vigencia, precio y beneficios
+    Entonces el plan queda disponible para compra"
+HU-68,User Story,Comprar o renovar membresía,E9 Deportes e instalaciones,Membresías,Must,,"Característica: Compra de membresía
+  Escenario: Compra exitosa
+    Dado que soy un cliente autenticado
+    Cuando compro o renuevo una membresía activa
+    Entonces el sistema activa o extiende la vigencia
+    Y registra el pago y los beneficios asignados"
+HU-69,User Story,Asignar beneficios de membresía,E9 Deportes e instalaciones,Membresías,Should,,"Característica: Beneficios
+  Escenario: Beneficios aplicados
+    Dado que un cliente tiene membresía activa
+    Cuando el sistema aplica descuentos y accesos incluidos
+    Entonces las reservas reflejan el beneficio correspondiente"
+HU-70,User Story,Suspender membresía,E9 Deportes e instalaciones,Membresías,Should,,"Característica: Suspensión
+  Escenario: Suspensión por incumplimiento
+    Dado que un cliente incumple condiciones o vence el pago
+    Cuando el administrador suspende la membresía
+    Entonces se pierden los beneficios
+    Y se notifica al cliente con el motivo"
+HU-71,User Story,Registrar implemento deportivo,E9 Deportes e instalaciones,Alquiler de implementos,Must,,"Característica: Alta de implemento
+    Dado que soy personal o administrador de instalaciones
+    Cuando registro un implemento con tipo, cantidad y tarifa (balones, raquetas, pesas)
+    Entonces queda disponible para reserva"
+HU-72,User Story,Reservar implemento deportivo,E9 Deportes e instalaciones,Alquiler de implementos,Must,,"Característica: Reserva de implementos
+  Escenario: Reserva con la instalación
+    Dado que reservo una instalación
+    Cuando agrego implementos deportivos a la reserva
+    Entonces se descuentan del inventario por el rango de la reserva"
+HU-73,User Story,Registrar devolución y estado del implemento,E9 Deportes e instalaciones,Alquiler de implementos,Should,,"Característica: Devolución
+  Escenario: Fin de uso
+    Dado que terminó el uso del implemento
+    Cuando el personal registra la devolución y el estado
+    Entonces el inventario se actualiza
+    Y se reportan daños o pérdidas"
+HU-74,User Story,Crear torneo o evento deportivo,E9 Deportes e instalaciones,Torneos y eventos,Should,,"Característica: Alta de torneo
+  Escenario: Torneo publicado
+    Dado que soy administrador deportivo
+    Cuando creo un torneo con categoría, fechas y formato
+    Entonces queda publicado
+    Y se habilitan las inscripciones"
+HU-75,User Story,Inscribir participantes a torneo,E9 Deportes e instalaciones,Torneos y eventos,Should,,"Característica: Inscripción a torneo
+  Escenario: Inscripción confirmada
+    Dado que el torneo está abierto a inscripciones
+    Cuando un participante o equipo se inscribe
+    Entonces queda confirmado según el cupo
+    Y se notifica el inicio del torneo"
+HU-76,User Story,Generar fixture y registrar resultados del torneo,E9 Deportes e instalaciones,Torneos y eventos,Could,,"Característica: Fixture y resultados
+  Escenario: Llaves y marcadores
+    Dado que el torneo tiene inscritos suficientes
+    Cuando se genera el fixture o las llaves
+    Entonces se registran los resultados
+    Y se actualiza el ranking"

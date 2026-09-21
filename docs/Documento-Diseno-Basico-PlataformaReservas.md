@@ -27,7 +27,7 @@
 
 Este documento describe el **análisis y diseño** de **SportHub**, la plataforma para la administración de **reservas de servicios** (clínicas, consultorios, salones de belleza y centros deportivos) propuesta en el **Caso 14** del Handbook de Casos 2026-2.
 
-En él se encuentra: (1) el contexto, los objetivos y el alcance; (2) el análisis sistémico del problema con su modelo conceptual, el diagrama de procesos y los casos de uso; (3) el *User Story Mapping* con 57 historias de usuario (51 comprometidas en el backlog `Fabrica_escuela_2026_1` y 6 adicionales identificadas como necesarias), criterios de aceptación en Gherkin y lineamientos UI/UX; (4) el diseño técnico con arquitectura C4, diagrama de despliegue, de clases y de secuencias; (5) las responsabilidades mediante patrones **GRASP** y **GoF**, y el análisis de **antipatrones**; (6) la estrategia de **calidad, seguridad y gestión** (pruebas unitarias, funcionales y de aceptación, matriz de riesgos y deuda técnica); (7) la organización, cronograma y **presupuesto**; y (8) el **licenciamiento**. Adicionalmente se documenta el **entorno operativo completo** (Azure DevOps, contenedores, observabilidad con Prometheus/Grafana, pipeline CI/CD) preparado para el **despliegue** en nube (Render).
+En él se encuentra: (1) el contexto, los objetivos y el alcance; (2) el análisis sistémico del problema con su modelo conceptual, el diagrama de procesos y los casos de uso; (3) el *User Story Mapping* con 76 historias de usuario (51 comprometidas en el backlog `Fabrica_escuela_2026_1`, 6 adicionales identificadas como necesarias y 19 del dominio deportivo de la épica **E9**), los casos de uso comunes del portal y los del dominio deportivo de SportHub, criterios de aceptación en Gherkin y lineamientos UI/UX; (4) el diseño técnico con arquitectura C4, diagrama de despliegue, de clases y de secuencias; (5) las responsabilidades mediante patrones **GRASP** y **GoF**, y el análisis de **antipatrones**; (6) la estrategia de **calidad, seguridad y gestión** (pruebas unitarias, funcionales y de aceptación, matriz de riesgos y deuda técnica); (7) la organización, cronograma y **presupuesto**; y (8) el **licenciamiento**. Adicionalmente se documenta el **entorno operativo completo** (Azure DevOps, contenedores, observabilidad con Prometheus/Grafana, pipeline CI/CD) preparado para el **despliegue** en nube (Render).
 
 El propósito del proyecto es eliminar la sobreocupación, las cancelaciones desordenadas y la dificultad para gestionar agendas mediante una aplicación web en la que **proveedores** definen servicios, horarios y personal; **personal operativo** administra su agenda; y **clientes** consultan disponibilidad, reservan, reprograman y cancelan citas con trazabilidad y reportes de ocupación.
 
@@ -72,6 +72,7 @@ Negocios como clínicas, consultorios, salones de belleza o centros deportivos d
 - **O7.** Generar y exportar reportes de uso de servicios (HU-48→HU-50).
 - **O8.** Incorporar notificaciones, auditoría y MFA como historias complementarias (HU-52→HU-57).
 - **O9.** Cumplir los criterios del perfil avanzado: arquitectura por capas, API REST versionada, seguridad OWASP, calidad >65 % de cobertura, pipelines CI/CD y despliegue contenerizado en nube.
+- **O10.** Incorporar el dominio deportivo de SportHub (épica E9): reserva de instalaciones y canchas, inscripción a clases grupales, membresías, alquiler de implementos y torneos con ranking (HU-58→HU-76).
 
 **Fuera de alcance**: pagos en línea, mensajería interna, aplicaciones móviles nativas y geolocalización de sedes.
 
@@ -185,6 +186,164 @@ erDiagram
     }
 ```
 
+#### MER — Dominio deportivo (épica E9)
+
+```mermaid
+erDiagram
+    USER_ACCOUNT ||--o{ RESERVA_INSTALACION : "cliente"
+    USER_ACCOUNT ||--o{ INSCRIPCION_CLASE : "inscribe"
+    USER_ACCOUNT ||--o{ MEMBRESIA : "compra"
+    USER_ACCOUNT ||--o{ RESERVA_IMPLEMENTO : "utiliza"
+    USER_ACCOUNT ||--o{ PARTICIPANTE_TORNEO : "participa"
+    PROVIDER ||--o{ INSTALACION : "administra"
+    PROVIDER ||--o{ PLAN_MEMBRESIA : "ofrece"
+    PROVIDER ||--o{ IMPLEMENTO : "dispone"
+    PROVIDER ||--o{ TORNEO : "organiza"
+    PROVIDER_STAFF ||--o{ CLASE_GRUPAL : "dicta"
+    INSTALACION ||--o{ INSTALACION_MANTENIMIENTO : "bloquea"
+    INSTALACION ||--o{ RESERVA_INSTALACION : "recibe"
+    INSTALACION ||--o{ LISTA_ESPERA_INSTALACION : "tiene"
+    INSTALACION ||--o{ CLASE_GRUPAL : "alberga"
+    CLASE_GRUPAL ||--o{ INSCRIPCION_CLASE : "recibe"
+    PLAN_MEMBRESIA ||--o{ MEMBRESIA : "genera"
+    IMPLEMENTO ||--o{ RESERVA_IMPLEMENTO : "reserva"
+    TORNEO ||--o{ PARTICIPANTE_TORNEO : "inscribe"
+    TORNEO ||--o{ PARTIDO_TORNEO : "programa"
+    INSTALACION {
+        uuid id PK
+        uuid provider_id FK
+        enum tipo "CANCHA|SALA|PISCINA"
+        varchar nombre
+        int capacidad
+        numeric tarifa_por_hora
+        time hora_apertura
+        time hora_cierre
+        boolean activa
+        timestamptz created_at
+    }
+    INSTALACION_MANTENIMIENTO {
+        uuid id PK
+        uuid instalacion_id FK
+        date fecha
+        time hora_inicio
+        time hora_fin
+        varchar motivo
+        boolean activo
+    }
+    RESERVA_INSTALACION {
+        uuid id PK
+        uuid instalacion_id FK
+        uuid client_id FK
+        date fecha
+        time hora_inicio
+        time hora_fin
+        enum estado "RESERVADA|CANCELADA"
+    }
+    LISTA_ESPERA_INSTALACION {
+        uuid id PK
+        uuid instalacion_id FK
+        uuid client_id FK
+        date fecha
+        time hora_inicio
+        enum estado "EN_ESPERA|ACEPTADA|CANCELADA"
+    }
+    CLASE_GRUPAL {
+        uuid id PK
+        uuid provider_id FK
+        uuid instalacion_id FK
+        uuid entrenador_staff_id FK
+        varchar nombre
+        varchar nivel
+        date fecha
+        time hora
+        int duracion_min
+        int cupo
+        boolean activa
+    }
+    INSCRIPCION_CLASE {
+        uuid id PK
+        uuid clase_grupal_id FK
+        uuid client_id FK
+        enum estado "CONFIRMADA|EN_ESPERA|CANCELADA|COMPLETADA"
+    }
+    PLAN_MEMBRESIA {
+        uuid id PK
+        uuid provider_id FK
+        varchar nombre
+        int vigencia_dias
+        int descuento_porcentaje
+        numeric precio
+        varchar beneficios
+        boolean activo
+    }
+    MEMBRESIA {
+        uuid id PK
+        uuid plan_id FK
+        uuid client_id FK
+        date fecha_inicio
+        date fecha_fin
+        enum estado "ACTIVA|SUSPENDIDA|VENCIDA"
+    }
+    IMPLEMENTO {
+        uuid id PK
+        uuid provider_id FK
+        varchar nombre
+        varchar tipo
+        int cantidad_total
+        numeric tarifa
+        boolean activo
+    }
+    RESERVA_IMPLEMENTO {
+        uuid id PK
+        uuid implemento_id FK
+        uuid client_id FK
+        date fecha
+        int cantidad
+        enum estado "RESERVADA|PRESTADO|DEVUELTO"
+        enum condicion "BUENO|DAÑADO|PERDIDO"
+    }
+    TORNEO {
+        uuid id PK
+        uuid provider_id FK
+        varchar nombre
+        varchar categoria
+        enum formato "LIGA|ELIMINATORIA_DIRECTA"
+        date fecha_inicio
+        date fecha_fin
+        int cupo
+        enum estado "PROXIMO|EN_CURSO|FINALIZADO"
+    }
+    PARTICIPANTE_TORNEO {
+        uuid id PK
+        uuid torneo_id FK
+        uuid client_id FK
+        varchar nombre_equipo
+        enum estado "INSCRITO|CONFIRMADO"
+    }
+    PARTIDO_TORNEO {
+        uuid id PK
+        uuid torneo_id FK
+        int ronda
+        uuid participante_a_id FK
+        uuid participante_b_id FK
+        date fecha
+        int marcador_a
+        int marcador_b
+        uuid ganador_id FK
+        enum estado "PROGRAMADO|JUGADO"
+    }
+```
+
+**Reglas de negocio del dominio deportivo** (RN-D):
+
+- **RN-D1.** Una franja de 60 minutos de `INSTALACION` no puede exceder su capacidad (no choque de turnos por franja + fecha). Código de respuesta: `CUPO_COMPLETO`.
+- **RN-D2.** Una franja con `INSTALACION_MANTENIMIENTO` activo queda bloqueada (`HORARIO_BLOQUEADO`).
+- **RN-D3.** La lista de espera se promueve en orden FIFO cuando se libera un turno cancelado.
+- **RN-D4.** La inscripción a `CLASE_GRUPAL` respeta el cupo; si está lleno pasa a `EN_ESPERA` y se promueve al cancelar. La cancelación de una inscripción confirmada dentro de las 24 h previas queda bloqueada.
+- **RN-D5.** Solo `MEMBRESIA` en estado `ACTIVA` y con `fecha_fin >= hoy` aplica el descuento del plan (HU-69); la suspensión solo aplica sobre membresías activas.
+- **RN-D6.** El stock de `IMPLEMENTO` por fecha = `cantidad_total - unidades EN_USO`; devolver como `PERDIDO` reduce `cantidad_total`.
+- **RN-D7.** Un torneo solo se abre con un número par de participantes (generación de llaves); ranking en formato `LIGA` puntúa 3/1/0 y en eliminación directa 1/0.
+
 **Reglas de negocio principales** (RN):
 
 - **RN-1.** No puede existir más de una reserva activa (`SOLICITADA` o `CONFIRMADA`) para el mismo `service_id + staff_id + date + [start,end)` → evita sobreocupación.
@@ -274,13 +433,107 @@ flowchart LR
 
 Los actores se autentican y el sistema aplica RBAC: `CLIENT`, `PROVIDER`, `STAFF`, `ADMIN` (MFA obligatorio para `ADMIN`).
 
+#### 2.4.1 Casos de uso comunes (transversales del portal)
+
+Son los casos de uso que aplican a todo el portal, independientemente del dominio. El **ADMIN** participa en casi todos ellos como gobernanza.
+
+```mermaid
+flowchart LR
+    subgraph ACTORES
+        C([Cliente])
+        P([Proveedor])
+        S([Personal])
+        A([Administrador])
+    end
+    subgraph COMMON["SportHub — Casos de uso comunes"]
+        U1([UC-C01 Registrar cuenta])
+        U2([UC-C02 Iniciar sesión])
+        U3([UC-C03 Cerrar sesión])
+        U4([UC-C04 Recuperar contraseña])
+        U5([UC-C05 Cambiar contraseña])
+        U6([UC-C06 Consultar y actualizar perfil])
+        U7([UC-C07 Recibir notificaciones])
+        U8([UC-C08 Auditar acciones sensibles])
+        U9([UC-C09 Consultar reportes])
+        U10([UC-C11 Administrar catálogo y políticas])
+    end
+    C --- U1
+    C --- U2
+    C --- U4
+    C --- U5
+    C --- U6
+    C --- U7
+    P --- U1
+    P --- U2
+    P --- U6
+    S --- U2
+    S --- U3
+    A --- U2
+    A --- U8
+    A --- U9
+    A --- U10
+```
+
+| Ref | Caso de uso | Actor(es) | Descripción | Historias |
+|-----|-------------|-----------|-------------|-----------|
+| UC-C01 | Registrar cuenta | Cliente, Proveedor | Alta de cuenta con datos personales; el proveedor además pasa verificación de identidad (KYC) | HU-01, HU-06 |
+| UC-C02 | Iniciar sesión | Todos | Autenticación con credenciales; bloqueo tras 5 intentos fallidos (30 min); MFA para `ADMIN` | HU-12, HU-19, HU-51 |
+| UC-C03 | Cerrar sesión | Todos | Cierre seguro invalidando la sesión/token | HU-13 |
+| UC-C04 | Recuperar contraseña | Cliente, Proveedor | Auto-reset 24h con enlace de un solo uso | HU-15 |
+| UC-C05 | Cambiar contraseña | Todos | Requiere contraseña actual | HU-14 |
+| UC-C06 | Consultar y actualizar perfil | Cliente, Proveedor | Ver y editar datos del perfil; el proveedor puede desactivarse o pedir eliminación | HU-02→HU-05, HU-07 |
+| UC-C07 | Recibir notificaciones | Todos | Confirmación, recordatorio y cancelación por imprevisto | HU-32, HU-52, HU-53 |
+| UC-C08 | Auditar acciones sensibles | Administrador | Registro inmutable de acciones sensibles | HU-55 |
+| UC-C09 | Consultar reportes | Administrador, Proveedor | Reportes de uso y exportación de informes | HU-48→HU-50 |
+| UC-C10 | Administrar parámetros y políticas | Administrador | Políticas de cancelación y parámetros de atención | HU-54 |
+| UC-C11 | Administrar catálogo y gobernanza | Administrador | Catálogo de tipos, cuentas y seguridad (MFA) | HU-56, HU-57 |
+
+#### 2.4.2 Casos de uso del dominio deportivo (épica E9)
+
+SportHub extiende el alcance al dominio deportivo: instalaciones y canchas, clases grupales, membresías, alquiler de implementos y torneos.
+
+```mermaid
+flowchart LR
+    subgraph ACTORES2
+        D([Deportista])
+        E([Entrenador])
+        I([Admin de instalaciones])
+    end
+    subgraph DEPOR["SportHub — Casos de uso deportivos E9"]
+        A1([UC-D01 Reservar instalación o cancha])
+        A2([UC-D02 Inscribirse a clase grupal])
+        A3([UC-D03 Comprar o renovar membresía])
+        A4([UC-D04 Reservar implementos])
+        A5([UC-D05 Inscribirse a torneo])
+        A6([UC-D06 Consultar ranking y resultados])
+    end
+    D --- A1
+    D --- A2
+    D --- A3
+    D --- A4
+    D --- A5
+    D --- A6
+    E --- A2
+    E --- A6
+    I --- A4
+```
+
+| Ref | Caso de uso | Actor(es) | Descripción | Historias |
+|-----|-------------|-----------|-------------|-----------|
+| UC-D01 | Reservar instalación o cancha | Deportista (Cliente) | Consultar disponibilidad por franjas y reservar turnos de 60 min con RN-1 (sin choques) | HU-59, HU-60 |
+| UC-D02 | Inscribirse a clase grupal | Deportista | Inscribirse a clases con cupo; lista de espera y cancelación dentro de la ventana | HU-63→HU-66 |
+| UC-D03 | Comprar o renovar membresía | Deportista | Comprar plan, extender vigencia y aplicar beneficios/descuentos | HU-67→HU-70 |
+| UC-D04 | Reservar implementos | Deportista, Admin de instalaciones | Reservar implementos asociados a la instalación y controlar inventario/devoluciones | HU-71→HU-73 |
+| UC-D05 | Inscribirse a torneo | Deportista, Admin de instalaciones | Alta de torneo, inscripción de participantes y control de cupos | HU-74, HU-75 |
+| UC-D06 | Consultar ranking y resultados | Deportista, Entrenador | Fixture/llaves, registro de resultados y ranking actualizado | HU-76 |
+
 ---
 
 ## 3. Requerimientos y Experiencia de Usuario
 
 ### 3.1 User Story Mapping
 
-El USM completo se mantiene en el repositorio y en Azure DevOps (`Fabrica_escuela_2026_1 \ Epic 1…7`) con enlace en anexos. Las **épicas (E)**, **features (F)** e **historias de usuario (HU)** priorizadas (MoSCoW) son:
+El USM completo se mantiene en el repositorio y en Azure DevOps (`Fabrica_escuela_2026_1 \ Epic 1…9`) con enlace en anexos. Las **épicas (E)**, **features (F)** e **historias de usuario (HU)** priorizadas (MoSCoW) son:
 
 | Épica | Feature | HU | Título | Prioridad |
 |-------|---------|----|--------|-----------|
@@ -341,6 +594,25 @@ El USM completo se mantiene en el repositorio y en Azure DevOps (`Fabrica_escuel
 | E8 | | HU-55 | Registrar auditoría de acciones sensibles | Must |
 | E8 | | HU-56 | Activar MFA para acceso administrativo | Must |
 | E8 | | HU-57 | Optimización de consultas e índices (rendimiento) | Could |
+| E9 Deportes e instalaciones | Instalaciones y canchas | HU-58 | Registrar instalación deportiva | Must |
+| E9 | | HU-59 | Consultar instalaciones y disponibilidad | Must |
+| E9 | | HU-60 | Reservar cancha o instalación por turno | Must |
+| E9 | | HU-61 | Bloquear instalación por mantenimiento | Should |
+| E9 | | HU-62 | Validar capacidad y activar lista de espera por instalación | Could |
+| E9 | Clases grupales | HU-63 | Registrar clase grupal | Must |
+| E9 | | HU-64 | Inscribirse a clase grupal | Must |
+| E9 | | HU-65 | Cancelar inscripción a clase grupal | Should |
+| E9 | | HU-66 | Gestionar lista de espera de clases | Could |
+| E9 | Membresías | HU-67 | Crear plan de membresía | Must |
+| E9 | | HU-68 | Comprar o renovar membresía | Must |
+| E9 | | HU-69 | Asignar beneficios de membresía | Should |
+| E9 | | HU-70 | Suspender membresía | Should |
+| E9 | Alquiler de implementos | HU-71 | Registrar implemento deportivo | Must |
+| E9 | | HU-72 | Reservar implemento deportivo | Must |
+| E9 | | HU-73 | Registrar devolución y estado del implemento | Should |
+| E9 | Torneos y eventos | HU-74 | Crear torneo o evento deportivo | Should |
+| E9 | | HU-75 | Inscribir participantes a torneo | Should |
+| E9 | | HU-76 | Generar fixture y registrar resultados del torneo | Could |
 
 **Criterios de aceptación en Gherkin (historias clave):**
 
@@ -409,7 +681,7 @@ Característica: Registro de cuenta de usuario
     Entonces el sistema exige un segundo factor antes de permitir el acceso
 ```
 
-*(El conjunto completo de 57 historias con sus criterios de aceptación está en `azure-devops/backlog/backlog-fabrica_escuela_2026_1.csv` y se sincroniza por script con Azure DevOps.)*
+*(El conjunto completo de 76 historias (HU-01→HU-76) con sus criterios de aceptación en Gherkin está en `azure-devops/backlog/backlog-fabrica_escuela_2026_1_import.csv` y se sincroniza por script con Azure DevOps.)*
 
 **Enlace al USM**: `https://dev.azure.com/<org>/Fabrica_escuela_2026_1` (ver README-AZURE-DEVOPS).
 
@@ -627,6 +899,215 @@ classDiagram
     AuthService --> UserAccount
 ```
 
+#### Diagrama de clases — dominio deportivo (Épica E9)
+
+```mermaid
+classDiagram
+    class Instalacion {
+        +UUID id
+        +UUID providerId
+        +TipoInstalacion tipo
+        +String nombre
+        +int capacidad
+        +BigDecimal tarifaPorHora
+        +LocalTime horaApertura
+        +LocalTime horaCierre
+        +boolean activa
+        +dentroDeHorario(inicio,fin): boolean
+    }
+    class TipoInstalacion {
+        <<enum>>
+        CANCHA
+        SALA
+        PISCINA
+    }
+    class InstalacionMantenimiento {
+        +UUID id
+        +UUID instalacionId
+        +LocalDate fecha
+        +LocalTime horaInicio
+        +LocalTime horaFin
+        +String motivo
+        +boolean activo
+        +superpuesta(inicio,fin): boolean
+    }
+    class ReservaInstalacion {
+        +UUID id
+        +UUID instalacionId
+        +UUID clientId
+        +LocalDate fecha
+        +LocalTime horaInicio
+        +LocalTime horaFin
+        +ReservaInstalacionEstado estado
+        +superpuesta(inicio,fin): boolean
+    }
+    class ReservaInstalacionEstado {
+        <<enum>>
+        RESERVADA
+        CANCELADA
+    }
+    class ListaEsperaInstalacion {
+        +UUID id
+        +UUID instalacionId
+        +UUID clientId
+        +LocalDate fecha
+        +LocalTime horaInicio
+        +ListaEsperaEstado estado
+    }
+    class ClaseGrupal {
+        +UUID id
+        +UUID providerId
+        +UUID instalacionId
+        +UUID entrenadorStaffId
+        +String nombre
+        +String nivel
+        +LocalDate fecha
+        +LocalTime hora
+        +int duracionMin
+        +int cupo
+        +boolean activa
+    }
+    class InscripcionClase {
+        +UUID id
+        +UUID claseGrupalId
+        +UUID clientId
+        +InscripcionEstado estado
+    }
+    class PlanMembresia {
+        +UUID id
+        +UUID providerId
+        +String nombre
+        +int vigenciaDias
+        +int descuentoPorcentaje
+        +BigDecimal precio
+        +String beneficios
+        +boolean activo
+    }
+    class Membresia {
+        +UUID id
+        +UUID planId
+        +UUID clientId
+        +LocalDate fechaInicio
+        +LocalDate fechaFin
+        +MembresiaEstado estado
+        +renovar(dias): void
+    }
+    class Implemento {
+        +UUID id
+        +UUID providerId
+        +String nombre
+        +String tipo
+        +int cantidadTotal
+        +BigDecimal tarifa
+        +boolean activo
+        +reducirStock(cantidad): void
+    }
+    class ReservaImplemento {
+        +UUID id
+        +UUID implementoId
+        +UUID clientId
+        +LocalDate fecha
+        +int cantidad
+        +ReservaImplementoEstado estado
+        +CondicionImplemento condicion
+    }
+    class Torneo {
+        +UUID id
+        +UUID providerId
+        +String nombre
+        +String categoria
+        +FormatoTorneo formato
+        +LocalDate fechaInicio
+        +LocalDate fechaFin
+        +int cupo
+        +TorneoEstado estado
+    }
+    class ParticipanteTorneo {
+        +UUID id
+        +UUID torneoId
+        +UUID clientId
+        +String nombreEquipo
+        +ParticipanteEstado estado
+    }
+    class PartidoTorneo {
+        +UUID id
+        +UUID torneoId
+        +int ronda
+        +UUID participanteAId
+        +UUID participanteBId
+        +LocalDate fecha
+        +Integer marcadorA
+        +Integer marcadorB
+        +UUID ganadorId
+        +PartidoEstado estado
+        +registrarResultado(a,b): void
+    }
+    class InstalacionService {
+        +reservar(client,id,cmd): ReservaInstalacionResponse
+        +disponibilidad(id,fecha): List~FranjaInstalacion~
+        +cancelarReserva(caller,id): ReservaInstalacionResponse
+        +bloquearMantenimiento(caller,id,cmd): void
+        +solicitarListaEspera(client,id,cmd): ListaEsperaResponse
+    }
+    class ClaseService {
+        +inscribir(client,claseId): InscripcionClaseResponse
+        +cancelarInscripcion(caller,id): InscripcionClaseResponse
+        +completar(caller,claseId): long
+    }
+    class MembresiaService {
+        +comprar(client,cmd): MembresiaResponse
+        +suspender(caller,id,motivo): MembresiaResponse
+        +beneficio(client,cmd): BeneficioResponse
+    }
+    class ImplementoService {
+        +reservar(client,id,cmd): ReservaImplementoResponse
+        +prestar(caller,id): ReservaImplementoResponse
+        +devolver(caller,id,condicion): ReservaImplementoResponse
+    }
+    class TorneoService {
+        +inscribir(client,torneoId,cmd): ParticipanteResponse
+        +abrir(caller,torneoId): TorneoResponse
+        +registrarResultado(caller,partidoId,cmd): PartidoResponse
+        +ranking(torneoId): List~RankingEntry~
+    }
+
+    Provider "1" --> "*" Instalacion
+    Provider "1" --> "*" PlanMembresia
+    Provider "1" --> "*" Implemento
+    Provider "1" --> "*" Torneo
+    Instalacion "1" --> "*" InstalacionMantenimiento
+    Instalacion "1" --> "*" ReservaInstalacion
+    Instalacion "1" --> "*" ListaEsperaInstalacion
+    Instalacion "1" --> "*" ClaseGrupal
+    ClaseGrupal "1" --> "*" InscripcionClase
+    PlanMembresia "1" --> "*" Membresia
+    Implemento "1" --> "*" ReservaImplemento
+    Torneo "1" --> "*" ParticipanteTorneo
+    Torneo "1" --> "*" PartidoTorneo
+    ReservaInstalacion --> ReservaInstalacionEstado
+    InstalacionService --> InstalacionRepository
+    InstalacionService --> ReservaInstalacionRepository
+    InstalacionService --> ListaEsperaInstalacionRepository
+    ClaseService --> ClaseGrupalRepository
+    ClaseService --> InscripcionClaseRepository
+    MembresiaService --> PlanMembresiaRepository
+    MembresiaService --> MembresiaRepository
+    ImplementoService --> ImplementoRepository
+    ImplementoService --> ReservaImplementoRepository
+    TorneoService --> ParticipanteTorneoRepository
+    TorneoService --> PartidoTorneoRepository
+    InstalacionService --> AuditLogger
+    ClaseService --> AuditLogger
+    MembresiaService --> AuditLogger
+    ImplementoService --> AuditLogger
+    TorneoService --> AuditLogger
+    InstalacionService --> SportHubMetrics
+    ClaseService --> SportHubMetrics
+    MembresiaService --> SportHubMetrics
+    ImplementoService --> SportHubMetrics
+    TorneoService --> SportHubMetrics
+```
+
 **Aplicación de SOLID**:
 - **SRP**: cada clase tiene una responsabilidad (ej. `AvailabilityChecker` solo valida disponibilidad; `AuditLogger` solo persiste auditoría).
 - **OCP**: los estados de cita se extienden sin modificar la lógica base (composición de transiciones); nuevas reglas de disponibilidad se añaden sin tocar `AppointmentService`.
@@ -675,6 +1156,38 @@ sequenceDiagram
     U-->>P: 200 OK
 ```
 
+**4.3.3 Secuencia con objetos — "Reservar instalación deportiva" (UC-D01, E9):**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor CL as Cliente
+    participant C as InstalacionController
+    participant S as InstalacionService
+    participant R as ReservaInstalacionRepository
+    participant M as InstalacionMantenimientoRepository
+    participant MET as SportHubMetrics
+    participant A as AuditLogger
+    CL->>C: POST /api/v1/deportes/instalaciones/{id}/reservas {fecha, horaInicio}
+    C->>S: reservar(client, instalacionId, request)
+    S->>S: validaciones: fecha>=hoy, franja 60min, dentro de horario
+    S->>R: findByInstalacionIdAndFechaAndEstadoIn(id, fecha, ACTIVAS)
+    R-->>S: reservas activas de la fecha
+    S->>M: findByInstalacionIdAndFechaAndActivoTrue(id, fecha)
+    M-->>S: mantenimientos del día
+    alt Franja con mantenimiento activo
+        S-->>C: 409 HORARIO_BLOQUEADO
+    else Franja con capacidad completa (RN-D1)
+        S-->>C: 409 CUPO_COMPLETO
+    else Franja disponible
+        S->>R: save(reserva RESERVADA)
+        S->>MET: instalacionReservada()
+        S->>A: record("ReservaInstalacion", id, "RESERVADA", client)
+        S-->>C: 201 ReservaInstalacionResponse
+        C-->>CL: 201 Created {id, estado:"RESERVADA"}
+    end
+```
+
 ---
 
 ## 5. Responsabilidades e Interacciones
@@ -690,6 +1203,7 @@ Aplicados (mínimo 3):
 - **Polimorfismo**: `NotificationService` con implementaciones `EmailNotification`/`PushNotification` intercambiables.
 - **Pur fabricación**: `AvailabilityChecker` se introduce como clase pura de lógica de negocios sin entidad del dominio, evitando inflar `ServiceSchedule`.
 - **Indirección**: repositorios e interfaces median entre aplicación y persistencia.
+- **Creador (E9)**: `InstalacionService.reservar()`, `ClaseService.inscribir()` y `TorneoService.abrir()` crean los agregados del dominio deportivo (reservas, inscripciones, partidos) centralizando las reglas RN-D en los servicios de aplicación (alta cohesión).
 
 **Cómo se aplicarían los restantes**: *Varíe el acoplamiento* mediante configuración por interfaces de servicios externos; *No se lo cuente* exponiendo DTOs restringidos en la API; *Protección de variaciones* con Value Objects (p. ej. `Email`, `PasswordPolicy`) para encapsular reglas.
 
@@ -740,6 +1254,8 @@ Se aplican convenciones `PascalCase` para clases, `camelCase` para variables/mé
 
 - **Deuda reconocida**: la reserva simultánea se protege con validación transaccional y restricción única candando; no se implementa bloqueo optimista/Redis al inicio. → **Mejora futura**: bloqueo optimista con `@Version` y caché de disponibilidad (Redis) cuando haya evidencia de picos (ADR).
 - **Deuda reconocida**: MFA se activa inicialmente solo para `ADMIN`; extensión a proveedor previa evaluación de riesgo.
+- **Deuda reconocida (E9)**: la franja de instalaciones (RN-D1) usa *check-and-set* transaccional sobre consultas activas (patrón igual a citas) sin bloqueo optimista; la promoción de lista de espera es best-effort dentro de la misma transacción. → **Mejora futura**: `@Version` en `RESERVA_INSTALACION` y procesador asíncrono de colas (Spring `@Async` + Redis) para picos de demanda.
+- **Deuda reconocida (E9)**: el ranking de torneos se calcula en memoria por petición; con torneos masivos se materializará en tabla de posiciones.
 - **Impacto de normalización**: el MER está en 3FN; reportes acumulados se sirven por agregaciones SQL (sin desnormalizar) hasta que el volumen justifique una vista materializada.
 
 ### 6.3 Diseño de Pruebas Unitarias
@@ -751,6 +1267,25 @@ Se aplican convenciones `PascalCase` para clases, `camelCase` para variables/mé
 | PU-03 | `AppointmentService.confirm` | Confirmación de est. incorrecto | cita `CANCELADA` | lanza `InvalidTransitionException` |
 | PU-04 | `AuthService.login` | Bloqueo por intentos | 5 credenciales erróneas | cuenta bloqueada 30 min + auditoría |
 | PU-05 | `AvailabilityChecker.findSlots` | Franjas libres | agenda 9:00-17:00, duración 60min, 1 reserva | devuelve 7 franjas (sin repetir el ocupado) |
+| PU-06 | `InstalacionService.reservar` (E9) | Turno libre | cliente autenticado, franja 60min libre | retorna `RESERVADA` y persiste |
+| PU-07 | `InstalacionService.reservar` (E9) | Cupo lleno (RN-D1) | capacidad 1 con 1 franja ocupada | lanza `CUPO_COMPLETO` |
+| PU-08 | `InstalacionService.reservar` (E9) | Franja en mantenimiento | mantenimiento activo superpuesto | lanza `HORARIO_BLOQUEADO` |
+| PU-09 | `InstalacionService.solicitarListaEspera` (E9) | Franja completa | ocupadas >= capacidad, no en cola | retorna estado `EN_ESPERA` (FIFO) |
+| PU-10 | `ClaseService.inscribir` (E9) | Cupo disponible | confirmadas < cupo | retorna `CONFIRMADA` |
+| PU-11 | `ClaseService.inscribir` (E9) | Cupo lleno | confirmadas = cupo | retorna `EN_ESPERA` |
+| PU-12 | `ClaseService.inscribir` (E9) | Inscripción duplicada | ya tiene inscripción activa | lanza `INSCRIPCION_DUPLICADA` |
+| PU-13 | `ClaseService.cancelarInscripcion` (E9) | Ventana 24 h | clase comienza en <24 h | lanza `VENTANA_CANCELACION` |
+| PU-14 | `MembresiaService.comprar` (E9) | Compra nueva | sin membresía vigente | crea `ACTIVA` con vigencia del plan |
+| PU-15 | `MembresiaService.comprar` (E9) | Renovación | membresía vigente | amplía `fecha_fin` (HU-71) |
+| PU-16 | `MembresiaService.beneficio` (E9) | Descuento de plan | membresía activa, tarifa 80000 | aplica 15% → 68000 (HU-69) |
+| PU-17 | `ImplementoService.reservar` (E9) | Stock disponible | cantidad <= disponible por fecha | retorna `RESERVADA` |
+| PU-18 | `ImplementoService.reservar` (E9) | Stock insuficiente | cantidad > stock por fecha (RN-D6) | lanza `SIN_STOCK` |
+| PU-19 | `ImplementoService.devolver` (E9) | Devolución perdido | devolución con condición `PERDIDO` | reduce `cantidad_total` y pasa a `DEVUELTO` |
+| PU-20 | `TorneoService.inscribir` (E9) | Inscripción con cupo | torneo `PROXIMO`, cupo disponible | retorna `CONFIRMADO` |
+| PU-21 | `TorneoService.inscribir` (E9) | Cupo completo | confirmados = cupo | lanza `CUPO_COMPLETO` |
+| PU-22 | `TorneoService.abrir` (E9) | Número impar | 3 participantes confirmados | lanza `NUMERO_PAR_REQUERIDO` |
+| PU-23 | `TorneoService.ranking` (E9) | Ranking liga | partidos jugados 3/1/0 | ordena por puntos y desempata por victorias |
+| PU-24 | `TorneoService.registrarResultado` (E9) | Resultado partido | marcadores válidos | registra `JUGADO` y define `ganador_id` |
 
 *Cobertura objetivo ≥65 % (SonarCloud) con convención AAA (Arrange-Act-Assert).*
 
@@ -769,6 +1304,19 @@ Escenario: Horario ocupado (excepcional)
   Then el sistema responde 409 HORARIO_OCUPADO y sugiere alternativas
 ```
 **Resultado en pipeline**: los escenarios se automatizan (MockMvc + BD contenedor) y se ejecutan en la etapa `tests`; un fallo bloquea la integración (branch protection).
+
+**HU-60 — Reservar cancha o instalación por turno (E9)**
+```gherkin
+Escenario: Turno libre reservado
+  Given un cliente autenticado y una instalación con franja libre
+  When reserva el turno de 60 minutos y confirma
+  Then el sistema crea la reserva y aplica RN-1 sin choque de horarios
+
+Escenario: Turno ocupado (excepcional)
+  Given el turno ya tiene una reserva activa (o bloqueo por mantenimiento)
+  When el cliente intenta reservar la misma franja
+  Then el sistema responde 409 HORARIO_OCUPADO y sugiere alternativas
+```
 
 ### 6.5 Diseño de Pruebas de Aceptación (UI/UX)
 
