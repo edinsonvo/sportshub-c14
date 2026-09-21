@@ -385,6 +385,135 @@ HU = [
 "    Dado que existen datos de citas y disponibles\n"
 "    Cuando se consulta disponibilidad o historial\n"
 "    Entonces las consultas usan los índices definidos y responden ≤200 ms (p95)"),
+("HU-58","User Story","Registrar instalación deportiva","E9 Deportes e instalaciones","Instalaciones y canchas","Must","Sprint 2",
+"Característica: Registro de instalación\n"
+"  Escenario: Alta válida\n"
+"    Dado que soy un proveedor verificado en el dominio deportivo\n"
+"    Cuando registro una instalación con tipo, capacidad y tarifas (cancha, sala, piscina, gimnasio)\n"
+"    Entonces el sistema la crea en estado inactivo hasta definir horarios\n"
+"    Y la acción queda en auditoría"),
+("HU-59","User Story","Consultar instalaciones y disponibilidad","E9 Deportes e instalaciones","Instalaciones y canchas","Must","",
+"Característica: Disponibilidad de instalaciones\n"
+"  Escenario: Catálogo con franjas\n"
+"    Dado que consulto el catálogo deportivo\n"
+"    Cuando selecciono una instalación y una fecha\n"
+"    Entonces veo sus franjas libres, ocupadas y bloqueadas por mantenimiento"),
+("HU-60","User Story","Reservar cancha o instalación por turno","E9 Deportes e instalaciones","Instalaciones y canchas","Must","Sprint 2",
+"Característica: Reserva de cancha\n"
+"  Escenario: Turno libre\n"
+"    Dado que soy un cliente autenticado\n"
+"    Cuando reservo un turno libre de una instalación por 60 minutos\n"
+"    Entonces se crea la reserva en estado SOLICITADA o CONFIRMADA según política\n"
+"    Y se aplica la regla de no choque de horarios RN-1 a la instalación\n"
+"  Escenario: Turno ocupado\n"
+"    Dado que el turno ya tiene una reserva activa\n"
+"    Cuando intento reservar la misma franja\n"
+"    Entonces el sistema responde 409 HORARIO_OCUPADO y sugiere alternativas"),
+("HU-61","User Story","Bloquear instalación por mantenimiento","E9 Deportes e instalaciones","Instalaciones y canchas","Should","",
+"Característica: Mantenimiento\n"
+"  Escenario: Bloqueo preventivo\n"
+"    Dado que soy administrador de instalaciones o proveedor\n"
+"    Cuando bloqueo una franja o rango por mantenimiento\n"
+"    Entonces esa franja deja de ofrecerse al público\n"
+"    Y se notifica a los clientes con turnos afectados"),
+("HU-62","User Story","Validar capacidad y activar lista de espera por instalación","E9 Deportes e instalaciones","Instalaciones y canchas","Could","",
+"Característica: Aforo\n"
+"    Dado que la instalación tiene una capacidad máxima\n"
+"    Cuando se alcanza el cupo de reservas o inscripciones\n"
+"    Entonces el sistema activa la lista de espera y lo informa al cliente"),
+("HU-63","User Story","Registrar clase grupal","E9 Deportes e instalaciones","Clases grupales","Must","",
+"Característica: Alta de clase\n"
+"    Dado que soy proveedor o entrenador\n"
+"    Cuando registro una clase con entrenador, horario, cupo y nivel\n"
+"    Entonces queda publicada y reservable para el cliente"),
+("HU-64","User Story","Inscribirse a clase grupal","E9 Deportes e instalaciones","Clases grupales","Must","",
+"Característica: Inscripción a clase\n"
+"  Escenario: Cupo disponible\n"
+"    Dado que soy un cliente autenticado\n"
+"    Cuando me inscribo a una clase con cupo disponible\n"
+"    Entonces el sistema confirma la inscripción y la registra\n"
+"  Escenario: Cupo lleno\n"
+"    Dado que la clase alcanzó su cupo máximo\n"
+"    Cuando intento inscribirme\n"
+"    Entonces el sistema me agrega a la lista de espera"),
+("HU-65","User Story","Cancelar inscripción a clase grupal","E9 Deportes e instalaciones","Clases grupales","Should","",
+"Característica: Baja de inscripción\n"
+"  Escenario: Cancelación dentro de la ventana\n"
+"    Dado que tengo una inscripción activa a una clase\n"
+"    Cuando la cancelo dentro de la ventana permitida\n"
+"    Entonces se libera el cupo\n"
+"    Y se ofrece a la lista de espera"),
+("HU-66","User Story","Gestionar lista de espera de clases","E9 Deportes e instalaciones","Clases grupales","Could","",
+"Característica: Lista de espera\n"
+"  Escenario: Liberación de cupo\n"
+"    Dado que existe una lista de espera en una clase\n"
+"    Cuando se libera un cupo\n"
+"    Entonces se notifica al siguiente de la lista y se le da plazo para aceptar"),
+("HU-67","User Story","Crear plan de membresía","E9 Deportes e instalaciones","Membresías","Must","",
+"Característica: Plan de membresía\n"
+"  Escenario: Plan válido\n"
+"    Dado que soy administrador o proveedor deportivo\n"
+"    Cuando creo un plan con vigencia, precio y beneficios\n"
+"    Entonces el plan queda disponible para compra"),
+("HU-68","User Story","Comprar o renovar membresía","E9 Deportes e instalaciones","Membresías","Must","",
+"Característica: Compra de membresía\n"
+"  Escenario: Compra exitosa\n"
+"    Dado que soy un cliente autenticado\n"
+"    Cuando compro o renuevo una membresía activa\n"
+"    Entonces el sistema activa o extiende la vigencia\n"
+"    Y registra el pago y los beneficios asignados"),
+("HU-69","User Story","Asignar beneficios de membresía","E9 Deportes e instalaciones","Membresías","Should","",
+"Característica: Beneficios\n"
+"  Escenario: Beneficios aplicados\n"
+"    Dado que un cliente tiene membresía activa\n"
+"    Cuando el sistema aplica descuentos y accesos incluidos\n"
+"    Entonces las reservas reflejan el beneficio correspondiente"),
+("HU-70","User Story","Suspender membresía","E9 Deportes e instalaciones","Membresías","Should","",
+"Característica: Suspensión\n"
+"  Escenario: Suspensión por incumplimiento\n"
+"    Dado que un cliente incumple condiciones o vence el pago\n"
+"    Cuando el administrador suspende la membresía\n"
+"    Entonces se pierden los beneficios\n"
+"    Y se notifica al cliente con el motivo"),
+("HU-71","User Story","Registrar implemento deportivo","E9 Deportes e instalaciones","Alquiler de implementos","Must","",
+"Característica: Alta de implemento\n"
+"    Dado que soy personal o administrador de instalaciones\n"
+"    Cuando registro un implemento con tipo, cantidad y tarifa (balones, raquetas, pesas)\n"
+"    Entonces queda disponible para reserva"),
+("HU-72","User Story","Reservar implemento deportivo","E9 Deportes e instalaciones","Alquiler de implementos","Must","",
+"Característica: Reserva de implementos\n"
+"  Escenario: Reserva con la instalación\n"
+"    Dado que reservo una instalación\n"
+"    Cuando agrego implementos deportivos a la reserva\n"
+"    Entonces se descuentan del inventario por el rango de la reserva"),
+("HU-73","User Story","Registrar devolución y estado del implemento","E9 Deportes e instalaciones","Alquiler de implementos","Should","",
+"Característica: Devolución\n"
+"  Escenario: Fin de uso\n"
+"    Dado que terminó el uso del implemento\n"
+"    Cuando el personal registra la devolución y el estado\n"
+"    Entonces el inventario se actualiza\n"
+"    Y se reportan daños o pérdidas"),
+("HU-74","User Story","Crear torneo o evento deportivo","E9 Deportes e instalaciones","Torneos y eventos","Should","",
+"Característica: Alta de torneo\n"
+"  Escenario: Torneo publicado\n"
+"    Dado que soy administrador deportivo\n"
+"    Cuando creo un torneo con categoría, fechas y formato\n"
+"    Entonces queda publicado\n"
+"    Y se habilitan las inscripciones"),
+("HU-75","User Story","Inscribir participantes a torneo","E9 Deportes e instalaciones","Torneos y eventos","Should","",
+"Característica: Inscripción a torneo\n"
+"  Escenario: Inscripción confirmada\n"
+"    Dado que el torneo está abierto a inscripciones\n"
+"    Cuando un participante o equipo se inscribe\n"
+"    Entonces queda confirmado según el cupo\n"
+"    Y se notifica el inicio del torneo"),
+("HU-76","User Story","Generar fixture y registrar resultados del torneo","E9 Deportes e instalaciones","Torneos y eventos","Could","",
+"Característica: Fixture y resultados\n"
+"  Escenario: Llaves y marcadores\n"
+"    Dado que el torneo tiene inscritos suficientes\n"
+"    Cuando se genera el fixture o las llaves\n"
+"    Entonces se registran los resultados\n"
+"    Y se actualiza el ranking"),
 ]
 
 EPICS = [
@@ -396,6 +525,8 @@ EPICS = [
     ("E6", "Epic", "Historial y filtros", "Historiales de citas y consultas filtradas"),
     ("E7", "Epic", "Reportes", "Reportes y exportación de uso de servicios"),
     ("E8", "Epic", "Seguridad y transversal", "Autorización, auditoría, MFA, notificaciones y configuración"),
+    ("E9", "Epic", "Deportes e instalaciones (SportHub)",
+     "Instalaciones y canchas, clases grupales, membresías, alquiler de implementos y torneos"),
 ]
 
 ROWS = []
