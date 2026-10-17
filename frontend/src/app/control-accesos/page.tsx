@@ -2,15 +2,22 @@
 
 import React, { useState } from 'react';
 
-export default function RegistrarServicioPage() {
-  const [rol, setRol] = useState('Proveedor');
-  const [nombre, setNombre] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [mensaje, setMensaje] = useState('');
-  const [error, setError] = useState('');
-  const [serviciosRegistrados, setServiciosRegistrados] = useState([]);
+interface ServicioRegistrado {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  estado: string;
+}
 
-  function manejarEnvio(e) {
+export default function RegistrarServicioPage() {
+  const [rol, setRol] = useState<string>('Proveedor');
+  const [nombre, setNombre] = useState<string>('');
+  const [descripcion, setDescripcion] = useState<string>('');
+  const [mensaje, setMensaje] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [serviciosRegistrados, setServiciosRegistrados] = useState<ServicioRegistrado[]>([]);
+
+  function manejarEnvio(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMensaje('');
     setError('');
@@ -20,7 +27,7 @@ export default function RegistrarServicioPage() {
       return;
     }
 
-    const nuevoServicio = {
+    const nuevoServicio: ServicioRegistrado = {
       id: Date.now(),
       nombre: nombre,
       descripcion: descripcion || 'Sin descripción',
@@ -32,11 +39,10 @@ export default function RegistrarServicioPage() {
     setNombre('');
     setDescripcion('');
   }
-
   return (
     <div style={{ display: 'flex', backgroundColor: '#080d1a', minHeight: '100vh', width: '100vw', margin: 0, padding: 0, color: '#ffffff', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
       
-      <aside style={{ width: '260px', backgroundColor: '#0c1324', borderRight: '1px solid #1e293b', padding: '24px', display: 'flex', flexDirection: 'column', justifyBetween: 'space-between', justifyContent: 'space-between', flexShrink: 0, boxSizing: 'border-box' }}>
+      <aside style={{ width: '260px', backgroundColor: '#0c1324', borderRight: '1px solid #1e293b', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flexShrink: 0, boxSizing: 'border-box' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
             <img 
@@ -98,6 +104,7 @@ export default function RegistrarServicioPage() {
             S2 - PROVEEDOR
           </div>
         </header>
+
         <main style={{ flexGrow: 1, padding: '40px', backgroundColor: '#080d1a', overflowY: 'auto', boxSizing: 'border-box' }}>
           <div style={{ maxWidth: '650px', margin: '0 auto', width: '100%' }}>
             
@@ -154,16 +161,15 @@ export default function RegistrarServicioPage() {
                     <span style={{ color: '#64748b', fontSize: '12px' }}>* Todos los campos son obligatorios</span>
                     <button type="submit" style={{ padding: '8px 20px', backgroundColor: '#2563eb', color: '#ffffff', fontSize: '12px', fontWeight: 'bold', borderRadius: '8px', border: '0', cursor: 'pointer' }}>
                       Guardar Servicio &gt;
-                    </button>
-                  </div>
+                </button>
+              </div>
 
-                </form>
-
+            </form>
                 {serviciosRegistrados.length > 0 && (
                   <div style={{ padding: '24px', borderRadius: '12px', border: '1px solid #1e293b', backgroundColor: '#0c1324', boxSizing: 'border-box' }}>
                     <h5 style={{ fontWeight: 'bold', marginBottom: '16px', color: '#ffffff', fontSize: '16px', marginTop: 0 }}>Panel de Administración: Servicios Registrados</h5>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {serviciosRegistrados.map(function(serv) {
+                      {serviciosRegistrados.map(function(serv: ServicioRegistrado) {
                         return (
                           <div key={serv.id} style={{ padding: '16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#080d1a', border: '1px solid #1e293b', boxSizing: 'border-box' }}>
                             <div>
@@ -172,39 +178,38 @@ export default function RegistrarServicioPage() {
                             </div>
                             <span style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '12px', border: '1px solid rgba(234, 179, 8, 0.2)', color: '#facc15', backgroundColor: 'rgba(234, 179, 8, 0.1)', fontWeight: '500' }}>
                               {serv.estado}
-                        </span>
-                      </div>
-                    );
-                  })}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ margin: '40px auto 0 auto', maxWidth: '450px', backgroundColor: '#0c1324', border: '1px solid #dc2626', borderRadius: '12px', padding: '32px', textAlign: 'center', boxSizing: 'border-box' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+                  <span style={{ fontSize: '24px' }}>🛡️</span>
                 </div>
+                
+                <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', border: '1px solid rgba(220, 38, 38, 0.4)', color: '#f87171', backgroundColor: 'rgba(220, 38, 38, 0.15)', display: 'inline-block', marginBottom: '16px' }}>
+                  HTTP ERROR 403
+                </span>
+                
+                <h4 style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 8px 0' }}>Acceso denegado</h4>
+                <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.5', margin: '0 0 24px 0' }}>
+                  No tienes permisos para realizar esta acción. Esta función es exclusiva del Proveedor o Administrador.
+                </p>
+                
+                <button 
+                  type="button"
+                  onClick={() => setRol('Proveedor')} 
+                  style={{ padding: '10px', backgroundColor: '#1e293b', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', width: '100%', borderRadius: '8px', border: '0', cursor: 'pointer' }}
+                >
+                  Cambiar a Proveedor para continuar
+                </button>
               </div>
             )}
-          </div>
-        ) : (
-
-          <div style={{ margin: '40px auto 0 auto', maxWidth: '450px', backgroundColor: '#0c1324', border: '1px solid #dc2626', borderRadius: '12px', padding: '32px', textAlign: 'center', boxSizing: 'border-box' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
-              <span style={{ fontSize: '24px' }}>🛡️</span>
-            </div>
-            
-            <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', border: '1px solid rgba(220, 38, 38, 0.4)', color: '#f87171', backgroundColor: 'rgba(220, 38, 38, 0.15)', display: 'inline-block', marginBottom: '16px' }}>
-              HTTP ERROR 403
-            </span>
-            
-            <h4 style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 8px 0' }}>Acceso denegado</h4>
-            <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.5', margin: '0 0 24px 0' }}>
-              No tienes permisos para realizar esta acción. Esta función es exclusiva del Proveedor o Administrador.
-            </p>
-            
-            <button 
-              type="button"
-              onClick={() => setRol('Proveedor')} 
-              style={{ padding: '10px', backgroundColor: '#1e293b', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', width: '100%', borderRadius: '8px', border: '0', cursor: 'pointer' }}
-            >
-              Cambiar a Proveedor para continuar
-            </button>
-          </div>
-        )}
 
           </div>
         </main>
@@ -212,4 +217,3 @@ export default function RegistrarServicioPage() {
     </div>
   );
 }
-
