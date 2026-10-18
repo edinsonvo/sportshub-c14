@@ -7,7 +7,7 @@ export default function HomePage() {
         SportHub
       </h1>
       <p className="max-w-xl text-lg text-gray-600">
-        Reserva servicios de salones, consultorios, clínicas y centros deportivos
+        Reserva servicios de salones, clases y centros deportivos
         con disponibilidad real en línea.
       </p>
       <div className="flex flex-wrap justify-center gap-3">
