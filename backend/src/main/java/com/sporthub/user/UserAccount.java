@@ -1,5 +1,6 @@
 package com.sporthub.user;
 
+import com.sporthub.auth.mfa.MfaMethod;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -42,6 +43,16 @@ public class UserAccount {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
+
+    @Column(name = "mfa_enabled", columnDefinition = "boolean not null default false")
+    private boolean mfaEnabled = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mfa_method", length = 10)
+    private MfaMethod mfaMethod;
+
+    @Column(name = "mfa_secret", length = 64)
+    private String mfaSecret;
 
     protected UserAccount() {}
 
@@ -103,5 +114,35 @@ public class UserAccount {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isMfaEnabled() {
+        return mfaEnabled;
+    }
+
+    public MfaMethod getMfaMethod() {
+        return mfaMethod;
+    }
+
+    public String getMfaSecret() {
+        return mfaSecret;
+    }
+
+    public void setMfaSecret(String mfaSecret) {
+        this.mfaSecret = mfaSecret;
+        this.updatedAt = Instant.now();
+    }
+
+    public void enableMfa(MfaMethod method) {
+        this.mfaEnabled = true;
+        this.mfaMethod = method;
+        this.updatedAt = Instant.now();
+    }
+
+    public void disableMfa() {
+        this.mfaEnabled = false;
+        this.mfaMethod = null;
+        this.mfaSecret = null;
+        this.updatedAt = Instant.now();
     }
 }

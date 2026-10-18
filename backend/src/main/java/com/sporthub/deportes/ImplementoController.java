@@ -77,4 +77,10 @@ public class ImplementoController {
     public ResponseEntity<List<ReservaImplementoResponse>> mis() {
         return ResponseEntity.ok(implementoService.mis(SecurityUtils.currentUser()));
     }
+
+    @Operation(summary = "Consultar reservas de implementos a gestionar por el proveedor o administrador (HU-72/HU-73)")
+    @GetMapping("/reservas")
+    public ResponseEntity<List<ReservaImplementoGestionResponse>> gestionReservas() {
+        return ResponseEntity.ok(implementoService.gestionReservas(SecurityUtils.currentUser()));
+    }
 }

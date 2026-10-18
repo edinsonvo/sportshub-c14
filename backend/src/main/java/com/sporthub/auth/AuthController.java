@@ -43,8 +43,13 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<AuthResponse.Info> me() {
         UserAccount user = SecurityUtils.currentUser();
-        return ResponseEntity.ok(
-                new AuthResponse.Info(user.getId(), user.getEmail(), user.getFullName(), false, user.getCreatedAt()));
+        return ResponseEntity.ok(new AuthResponse.Info(
+                user.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.isMfaEnabled(),
+                user.isMfaEnabled() && user.getMfaMethod() != null ? user.getMfaMethod().name() : null,
+                user.getCreatedAt()));
     }
 
     @Operation(summary = "Cambiar contraseña (HU-14)")

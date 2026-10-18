@@ -118,6 +118,9 @@ erDiagram
         boolean active
         enum role "CLIENT|PROVIDER|STAFF|ADMIN"
         timestamptz created_at
+        boolean mfa_enabled
+        enum mfa_method "TOTP|EMAIL"
+        varchar mfa_secret
     }
     PROVIDER ||--o{ SERVICE : ofrece
     PROVIDER ||--o{ PROVIDER_STAFF : contrata
@@ -352,6 +355,8 @@ erDiagram
 - **RN-4.** Un cliente solo puede agendar sobre citas propias; la autorización por propiedad se resuelve en servidor (ABAC simple).
 - **RN-5.** La cancelación con estado `CANCELADA_POR_IMPREVISTO` es exclusiva del proveedor/personal y dispara notificación al cliente.
 - **RN-6.** Las acciones sensibles (eliminar cuenta, verificación de identidad, bloqueo de horario) se registran en `AUDIT_LOG`.
+- **RN-7.** Los usuarios con MFA activado completan el inicio de sesión en dos pasos: contraseña y código adicional (TOTP de 6 dígitos con 30 s de ventana, o OTP por correo con vigencia de 5 min y uso único).
+- **RN-8.** La configuración de MFA exige confirmación con un código válido; la desactivación exige la contraseña actual.
 
 ### 2.3 Diagrama de Procesos (dominio dinámico)
 

@@ -60,6 +60,12 @@ public class MembresiaController {
         return ResponseEntity.ok(membresiaService.mis(SecurityUtils.currentUser()));
     }
 
+    @Operation(summary = "Consultar membresías a gestionar por el proveedor o administrador (HU-70)")
+    @GetMapping("/gestion")
+    public ResponseEntity<List<MembresiaGestionResponse>> gestion() {
+        return ResponseEntity.ok(membresiaService.gestion(SecurityUtils.currentUser()));
+    }
+
     @Operation(summary = "Calcular beneficio de membresía sobre una tarifa (HU-69)")
     @PostMapping("/beneficio")
     public ResponseEntity<BeneficioResponse> beneficio(@Valid @RequestBody BeneficioRequest request) {

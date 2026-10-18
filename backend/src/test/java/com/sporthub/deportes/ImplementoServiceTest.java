@@ -10,9 +10,11 @@ import static org.mockito.Mockito.when;
 import com.sporthub.infra.AuditLogger;
 import com.sporthub.infra.BusinessException;
 import com.sporthub.infra.SportHubMetrics;
+import com.sporthub.reservas.Provider;
 import com.sporthub.reservas.ProviderRepository;
 import com.sporthub.user.Role;
 import com.sporthub.user.UserAccount;
+import com.sporthub.user.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -41,7 +43,7 @@ class ImplementoServiceTest {
         AuditLogger auditLogger = mock(AuditLogger.class);
         metrics = mock(SportHubMetrics.class);
         service = new ImplementoService(
-                implementoRepository, reservaRepository, providerRepository, auditLogger, metrics);
+                implementoRepository, reservaRepository, providerRepository, mock(UserRepository.class), auditLogger, metrics);
 
         implementoId = UUID.randomUUID();
         cliente = mock(UserAccount.class);
@@ -117,5 +119,29 @@ class ImplementoServiceTest {
         assertThat(response.condicion()).isEqualTo(CondicionImplemento.PERDIDO);
         assertThat(implemento.getCantidadTotal()).isEqualTo(8);
         verify(implementoRepository).save(implemento);
+    }
+
+    @Test
+    @DisplayName("PU-20: proveedor consulta reservas de sus implementos para préstamo (HU-72/HU-73)")
+    void gestionReservasDelProveedor() {
+        UUID providerId = UUID.randomUUID();
+        Provider provider = mock(Provider.class);
+        when(provider.getId()).thenReturn(providerId);
+        UserAccount proveedor = mock(UserAccount.class);
+        when(proveedor.getId()).thenReturn(UUID.randomUUID());
+        when(proveedor.getRole()).thenReturn(Role.PROVIDER);
+        when(providerRepository.findByUserId(any())).thenReturn(Optional.of(provider));
+        when(implementoRepository.findByProviderIdOrderByNombreAsc(providerId)).thenReturn(List.of(implemento(10)));
+        when(implementoRepository.findAllById(any())).thenReturn(List.of(implemento(10)));
+
+        ReservaImplemento reserva = new ReservaImplemento(implementoId, cliente.getId(), LocalDate.now().plusDays(1), 2);
+        when(reservaRepository.findAllByImplementoIdInOrderByFechaDesc(any())).thenReturn(List.of(reserva));
+
+        List<ReservaImplementoGestionResponse> result = service.gestionReservas(proveedor);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).implementoNombre()).isEqualTo("Balón de fútbol");
+        assertThat(result.get(0).clientId()).isEqualTo(cliente.getId());
+        assertThat(result.get(0).estado()).isEqualTo(ReservaImplementoEstado.RESERVADA);
     }
 }

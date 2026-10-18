@@ -22,6 +22,17 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS:true}
 
 springdoc:
   api-docs:
@@ -55,6 +66,16 @@ app:
     demo-data: ${DEMO_DATA_SEED:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+sporthub:
+  mfa:
+    challenge-expiration-ms: ${MFA_CHALLENGE_EXPIRATION_MS:300000}
+    totp:
+      issuer: ${MFA_TOTP_ISSUER:SportHub}
+    email:
+      enabled: ${MFA_EMAIL_ENABLED:false}
+      otp-ttl-seconds: ${MFA_EMAIL_OTP_TTL_SECONDS:300}
+      sender: ${MFA_EMAIL_SENDER:no-reply@sporthub.local}
 
 logging:
   level:

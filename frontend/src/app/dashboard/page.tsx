@@ -92,6 +92,12 @@ export default function DashboardPage() {
           <Button variant="secondary" onClick={loadAvailability}>
             Ver disponibilidad
           </Button>
+          <Button variant="ghost" onClick={() => router.push("/ajustes")}>
+            Seguridad (MFA)
+          </Button>
+          <Button variant="ghost" onClick={() => router.push("/deportes")}>
+            Deportes
+          </Button>
           <Button variant="ghost" onClick={handleLogout}>
             Cerrar sesión
           </Button>

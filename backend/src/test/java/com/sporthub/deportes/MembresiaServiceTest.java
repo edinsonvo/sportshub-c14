@@ -7,11 +7,14 @@ import static org.mockito.Mockito.when;
 
 import com.sporthub.infra.AuditLogger;
 import com.sporthub.infra.SportHubMetrics;
+import com.sporthub.reservas.Provider;
 import com.sporthub.reservas.ProviderRepository;
 import com.sporthub.user.Role;
 import com.sporthub.user.UserAccount;
+import com.sporthub.user.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +25,7 @@ class MembresiaServiceTest {
 
     private PlanMembresiaRepository planRepository;
     private MembresiaRepository membresiaRepository;
+    private ProviderRepository providerRepository;
     private SportHubMetrics metrics;
     private MembresiaService service;
 
@@ -32,10 +36,11 @@ class MembresiaServiceTest {
     void setUp() {
         planRepository = mock(PlanMembresiaRepository.class);
         membresiaRepository = mock(MembresiaRepository.class);
-        ProviderRepository providerRepository = mock(ProviderRepository.class);
+        providerRepository = mock(ProviderRepository.class);
         AuditLogger auditLogger = mock(AuditLogger.class);
         metrics = mock(SportHubMetrics.class);
-        service = new MembresiaService(planRepository, membresiaRepository, providerRepository, auditLogger, metrics);
+        service = new MembresiaService(
+                planRepository, membresiaRepository, providerRepository, mock(UserRepository.class), auditLogger, metrics);
 
         UUID clientId = UUID.randomUUID();
         cliente = mock(UserAccount.class);
@@ -45,6 +50,7 @@ class MembresiaServiceTest {
 
         plan = new PlanMembresia(
                 UUID.randomUUID(), "Mensual total", 30, 15, new BigDecimal("120000.00"), "Acceso con descuento");
+        plan.setId(UUID.randomUUID());
         when(planRepository.findByIdAndActivoTrue(any())).thenReturn(Optional.of(plan));
         when(planRepository.findById(any())).thenReturn(Optional.of(plan));
     }
@@ -99,5 +105,31 @@ class MembresiaServiceTest {
         assertThat(response.descuentoPorcentaje()).isEqualTo(15);
         assertThat(response.tarifaOriginal()).isEqualByComparingTo("80000.00");
         assertThat(response.tarifaFinal()).isEqualByComparingTo("68000.00");
+    }
+
+    @Test
+    @DisplayName("PU-17: proveedor gestiona las membresías vendidas con su plan (HU-70)")
+    void gestionDelProveedor() {
+        UUID providerId = UUID.randomUUID();
+        Provider provider = mock(Provider.class);
+        when(provider.getId()).thenReturn(providerId);
+        UserAccount proveedor = mock(UserAccount.class);
+        when(proveedor.getId()).thenReturn(UUID.randomUUID());
+        when(proveedor.getRole()).thenReturn(Role.PROVIDER);
+        when(providerRepository.findByUserId(any())).thenReturn(Optional.of(provider));
+
+        PlanMembresia plan2 = new PlanMembresia(
+                providerId, "Pack anual", 365, 25, new BigDecimal("600000.00"), "Beneficios premium");
+        when(planRepository.findByProviderIdOrderByNombreAsc(providerId)).thenReturn(List.of(plan, plan2));
+        when(planRepository.findAllById(any())).thenReturn(List.of(plan, plan2));
+
+        Membresia vendida = new Membresia(plan.getId(), cliente.getId(), LocalDate.now(), LocalDate.now().plusDays(30));
+        when(membresiaRepository.findAllByPlanIdInOrderByFechaInicioDesc(any())).thenReturn(List.of(vendida));
+
+        List<MembresiaGestionResponse> result = service.gestion(proveedor);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).planNombre()).isEqualTo("Mensual total");
+        assertThat(result.get(0).clientId()).isEqualTo(cliente.getId());
     }
 }

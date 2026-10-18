@@ -7,9 +7,12 @@ import com.sporthub.reservas.Provider;
 import com.sporthub.reservas.ProviderRepository;
 import com.sporthub.user.Role;
 import com.sporthub.user.UserAccount;
+import com.sporthub.user.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +23,7 @@ public class ImplementoService {
     private final ImplementoRepository implementoRepository;
     private final ReservaImplementoRepository reservaRepository;
     private final ProviderRepository providerRepository;
+    private final UserRepository userRepository;
     private final AuditLogger auditLogger;
     private final SportHubMetrics metrics;
 
@@ -27,11 +31,13 @@ public class ImplementoService {
             ImplementoRepository implementoRepository,
             ReservaImplementoRepository reservaRepository,
             ProviderRepository providerRepository,
+            UserRepository userRepository,
             AuditLogger auditLogger,
             SportHubMetrics metrics) {
         this.implementoRepository = implementoRepository;
         this.reservaRepository = reservaRepository;
         this.providerRepository = providerRepository;
+        this.userRepository = userRepository;
         this.auditLogger = auditLogger;
         this.metrics = metrics;
     }
@@ -129,6 +135,45 @@ public class ImplementoService {
     public List<ReservaImplementoResponse> mis(UserAccount client) {
         return reservaRepository.findByClientIdOrderByFechaDesc(client.getId()).stream()
                 .map(ReservaImplementoResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservaImplementoGestionResponse> gestionReservas(UserAccount caller) {
+        List<UUID> implementoIds;
+        if (caller.getRole() == Role.ADMIN) {
+            implementoIds = implementoRepository.findAll().stream().map(Implemento::getId).toList();
+        } else {
+            UUID providerId = providerRepository
+                    .findByUserId(caller.getId())
+                    .map(Provider::getId)
+                    .orElseThrow(() -> new BusinessException(
+                            "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
+            implementoIds = implementoRepository.findByProviderIdOrderByNombreAsc(providerId).stream()
+                    .map(Implemento::getId)
+                    .toList();
+        }
+        if (implementoIds.isEmpty()) {
+            return List.of();
+        }
+        List<ReservaImplemento> reservas = reservaRepository.findAllByImplementoIdInOrderByFechaDesc(implementoIds);
+        Map<UUID, String> nombresImplemento = implementoRepository.findAllById(implementoIds).stream()
+                .collect(Collectors.toMap(Implemento::getId, Implemento::getNombre));
+        Map<UUID, String> nombresCliente = userRepository
+                .findAllById(reservas.stream().map(ReservaImplemento::getClientId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(UserAccount::getId, UserAccount::getFullName));
+        return reservas.stream()
+                .map(r -> new ReservaImplementoGestionResponse(
+                        r.getId(),
+                        r.getImplementoId(),
+                        nombresImplemento.getOrDefault(r.getImplementoId(), ""),
+                        r.getClientId(),
+                        nombresCliente.getOrDefault(r.getClientId(), ""),
+                        r.getFecha(),
+                        r.getCantidad(),
+                        r.getEstado(),
+                        r.getCondicion()))
                 .toList();
     }
 

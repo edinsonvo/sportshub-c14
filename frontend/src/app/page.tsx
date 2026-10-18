@@ -29,6 +29,18 @@ export default function HomePage() {
         >
           Ver mis citas →
         </Link>
+        <Link
+          href="/ajustes"
+          className="inline-flex h-10 items-center rounded-md px-4 text-sm font-medium text-primary-700 hover:bg-primary-50"
+        >
+          Seguridad (MFA)
+        </Link>
+        <Link
+          href="/deportes"
+          className="inline-flex h-10 items-center rounded-md border border-primary-200 bg-primary-50 px-4 text-sm font-medium text-primary-700 hover:bg-primary-100"
+        >
+          Deportes →
+        </Link>
       </div>
     </main>
   );

@@ -12,4 +12,6 @@ public interface ReservaImplementoRepository extends JpaRepository<ReservaImplem
             UUID implementoId, LocalDate fecha, Collection<ReservaImplementoEstado> estados);
 
     List<ReservaImplemento> findByClientIdOrderByFechaDesc(UUID clientId);
+
+    List<ReservaImplemento> findAllByImplementoIdInOrderByFechaDesc(Collection<UUID> implementoIds);
 }

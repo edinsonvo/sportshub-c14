@@ -1,5 +1,6 @@
 package com.sporthub.auth;
 
+import com.sporthub.auth.mfa.MfaService;
 import com.sporthub.infra.AuditLogger;
 import com.sporthub.infra.BusinessException;
 import com.sporthub.security.JwtService;
@@ -18,6 +19,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
+    private final MfaService mfaService;
     private final AuditLogger auditLogger;
 
     public AuthService(
@@ -25,11 +27,13 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             LoginAttemptService loginAttemptService,
+            MfaService mfaService,
             AuditLogger auditLogger) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
+        this.mfaService = mfaService;
         this.auditLogger = auditLogger;
     }
 
@@ -59,6 +63,10 @@ public class AuthService {
                     "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos", HttpStatus.UNAUTHORIZED);
         }
         loginAttemptService.reset(request.email());
+        if (user.isMfaEnabled()) {
+            auditLogger.record("UserAccount", user.getId().toString(), "PASSWORD_OK", user.getEmail(), "MFA_REQUERIDO");
+            return mfaService.beginChallenge(user);
+        }
         return issueTokens(user);
     }
 

@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS user_account (
     active BOOLEAN NOT NULL DEFAULT TRUE,
     role VARCHAR(20) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    mfa_method VARCHAR(10),
+    mfa_secret VARCHAR(64)
 );
 
 CREATE TABLE IF NOT EXISTS provider (

@@ -7,11 +7,14 @@ import com.sporthub.reservas.Provider;
 import com.sporthub.reservas.ProviderRepository;
 import com.sporthub.user.Role;
 import com.sporthub.user.UserAccount;
+import com.sporthub.user.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,7 @@ public class MembresiaService {
     private final PlanMembresiaRepository planRepository;
     private final MembresiaRepository membresiaRepository;
     private final ProviderRepository providerRepository;
+    private final UserRepository userRepository;
     private final AuditLogger auditLogger;
     private final SportHubMetrics metrics;
 
@@ -29,11 +33,13 @@ public class MembresiaService {
             PlanMembresiaRepository planRepository,
             MembresiaRepository membresiaRepository,
             ProviderRepository providerRepository,
+            UserRepository userRepository,
             AuditLogger auditLogger,
             SportHubMetrics metrics) {
         this.planRepository = planRepository;
         this.membresiaRepository = membresiaRepository;
         this.providerRepository = providerRepository;
+        this.userRepository = userRepository;
         this.auditLogger = auditLogger;
         this.metrics = metrics;
     }
@@ -118,6 +124,46 @@ public class MembresiaService {
                             .orElse("");
                     return MembresiaResponse.from(m, planNombre);
                 })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MembresiaGestionResponse> gestion(UserAccount caller) {
+        List<UUID> planIds;
+        if (caller.getRole() == Role.ADMIN) {
+            planIds = planRepository.findAll().stream().map(PlanMembresia::getId).toList();
+        } else {
+            UUID providerId = providerRepository
+                    .findByUserId(caller.getId())
+                    .map(Provider::getId)
+                    .orElseThrow(() -> new BusinessException(
+                            "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
+            planIds = planRepository.findByProviderIdOrderByNombreAsc(providerId).stream()
+                    .map(PlanMembresia::getId)
+                    .toList();
+        }
+        if (planIds.isEmpty()) {
+            return List.of();
+        }
+        List<Membresia> membresias = membresiaRepository.findAllByPlanIdInOrderByFechaInicioDesc(planIds);
+        Map<UUID, String> nombresPlan = planRepository.findAllById(planIds).stream()
+                .filter(p -> p.getId() != null)
+                .collect(Collectors.toMap(PlanMembresia::getId, PlanMembresia::getNombre));
+        Map<UUID, String> nombresCliente = userRepository
+                .findAllById(membresias.stream().map(Membresia::getClientId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(UserAccount::getId, UserAccount::getFullName));
+        return membresias.stream()
+                .map(m -> new MembresiaGestionResponse(
+                        m.getId(),
+                        m.getClientId(),
+                        nombresCliente.getOrDefault(m.getClientId(), ""),
+                        m.getPlanId(),
+                        nombresPlan.getOrDefault(m.getPlanId(), ""),
+                        m.getFechaInicio(),
+                        m.getFechaFin(),
+                        m.getEstado(),
+                        m.getMotivo()))
                 .toList();
     }
 
