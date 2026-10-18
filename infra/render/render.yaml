@@ -26,7 +26,7 @@ services:
     name: sporthub-c14-backend
     runtime: docker
     repo: https://gitlab.com/udea-fe2026-2/sporthub
-    branch: main
+    branch: develop
     rootDir: backend
     dockerfilePath: ./Dockerfile
     plan: free
@@ -74,7 +74,7 @@ services:
     name: sporthub-c14-frontend
     runtime: docker
     repo: https://gitlab.com/udea-fe2026-2/sporthub
-    branch: main
+    branch: develop
     rootDir: frontend
     dockerfilePath: ./Dockerfile
     plan: free
