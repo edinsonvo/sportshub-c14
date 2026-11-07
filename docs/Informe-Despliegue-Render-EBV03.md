@@ -97,34 +97,36 @@ Dado que el CLI no soportaba creación del Blueprint (endpoint en early access/n
 3. **Crear backend** `POST /v1/services` tipo `web_service` con `runtime: docker`, `rootDir: backend`, `repo: https://gitlab.com/udea-fe2026-2/sporthub`, `branch: develop`, `healthCheckPath: /api/v1/health`, env vars con DB_* internos + JWT_SECRET + DEMO_DATA_SEED + JPA_DDL_AUTO + limits + `CORS_ALLOWED_ORIGINS=https://sporthub-c14-frontend.onrender.com`. Resultado: `srv-dbailou1egvs73as0t0g`, URL pública `https://sporthub-c14-backend.onrender.com`.
 4. **Crear frontend** `POST /v1/services` con `rootDir: frontend`, env vars `NEXT_PUBLIC_API_URL=https://sporthub-c14-backend.onrender.com`, `NEXT_PUBLIC_DEMO_SERVICE_ID` fijo. Resultado: `srv-dbailum1egvs73as1i3g`, URL pública `https://sporthub-c14-frontend.onrender.com`.
 
-Ambos servicios iniciaron `build_in_progress` sobre el commit de integración `b8a9f10` (versión 1.0.0, Fase 3). Se monitorizaron los `deploys` vía API: frontend pasó a `live` primero (Next build rápido), backend a `live` tras build Maven más prolongado (~3-4 min). Frontend respondió `200` y backend respondió `200 /api/v1/health` (`{"service":"sporthub-backend","status":"UP"}`).
+Ambos servicios iniciaron `build_in_progress` sobre el commit de integración `b8a9f10` (versión 1.0.0, Fase 3). Se monitorizaron los `deploys` vía API: el frontend pasó a `live` primero (build de Next rápido) y respondió `200`. El backend también pasó a `live`, pero su proceso entraba en *crash loop* por los proveedores/staff duplicados descritos en la sección 8.3. Se corrigió con el commit `454331b` y un nuevo despliegue automático desde GitLab `develop`.
 
-## 8. Corrección Definitiva de Inicialización de Semilla de Datos (Fase 3 Final)
+## 8. Corrección de la semilla de datos y arranque del backend
 
-En la Fase 3 se corrigió de raíz en el código fuente la inconsistencia de UUIDs producida por  de Hibernate 6 en . 
+### 8.1 Antecedente: UUIDs generados por Hibernate
+En Spring Data JPA con Hibernate 6, cuando una entidad tiene `@UuidGenerator` en su clave primaria, cualquier valor asignado manualmente vía `setId(...)` es sobrescrito por el generador al momento del flush. Esto provocaba que entidades hijas (`ProviderService`, `ServiceSchedule`, `ProviderStaff`, `Instalacion`) quedaran asociadas a UUIDs antiguos o nulos mientras la entidad padre recibía un nuevo identificador autogenerado.
 
-### 8.1 Causa raíz identificada
-En Spring Data JPA con Hibernate 6, cuando una entidad tiene la anotación  en su clave primaria , cualquier valor asignado manualmente vía  es sobrescrito por el generador al momento del flush. Esto provocaba que entidades hijas (, , , ) quedaran asociadas a UUIDs antiguos o nulos mientras la entidad padre recibía un nuevo identificador autogenerado.
+### 8.2 Solución Fase 3: encadenamiento de entidades persistidas
+Se refactorizó `DemoDataInitializer.java` para capturar la entidad persistida después de cada `save(...)` y usar sus identificadores generados reales (`provider.getId()`, `staff.getId()`, `service.getId()`). Las instalaciones y horarios se asocian directamente a esos IDs. Con esto, un despliegue limpio inicializa los datos y relaciones sin scripts SQL manuales.
 
-### 8.2 Solución definitiva aplicada en código
-Se modificó  para capturar la entidad persistida tras cada llamada a  y usar sus identificadores generados reales:
-- 
-- 
-- Las instalaciones y horarios se asocian directamente a  y .
+### 8.3 Incidencia del despliegue 1.0.0: duplicados históricos
+Al desplegar la versión 1.0.0 (commit `b8a9f10`) el backend entró en *crash loop* y Render devolvió `502/503`:
 
-Con esta corrección definitiva, **cualquier despliegue limpio o recreación de la base de datos en Render inicializa el 100% de los datos y relaciones sin requerir ninguna intervención ni script SQL manual**.
+- **Síntoma en logs:** `IncorrectResultSizeDataAccessException: Query did not return a unique result: 15 results were returned` en `DemoDataInitializer.seedServicios`.
+- **Causa raíz:** versiones anteriores del inicializador creaban `Provider` y `ProviderStaff` sin comprobar si ya existían para el usuario. Quince reinicios acumularon 15 filas por usuario. El nuevo código usaba `findByUserId(...)` con retorno `Optional`, que falla cuando hay más de una fila.
+- **Limpieza de datos:** se conservaron los IDs canónicos y se eliminaron las filas duplicadas y heredadas (proveedores 30→2, staff 30→2, `provider_service` 15→0, `service_schedule` 75→0). El seed recrea los datos dependientes al arrancar.
+- **Endurecimiento en código:** `ProviderRepository` y `ProviderStaffRepository` ahora exponen `findFirstByUserId(...)`; se actualizaron todas las llamadas y pruebas (commit `454331b`). Así el arranque no falla aunque vuelvan a existir filas duplicadas.
 
 ## 9. Pruebas de validación (Smoke test)
 
-Se validaron endpoints con todos los roles (password: `password`):
+Validación ejecutada tras el despliegue del commit `454331b` (password demo: `password`):
 
-- **Auth:** Login correcto para admin/cliente/deportes/entrenador/belleza/laura.
-- **Catálogo:** `/deportes/instalaciones` 200, `/deportes/clases` 200, `/deportes/implementos` 200, `/deportes/torneos` 200, `/deportes/membresias/planes` 200. (El catálogo estaba poblado tras fix SQL).
-- **Proveedor/STAFF:** `/deportes/proveedor/me` → PROVIDER 200, STAFF asignado 200, CLIENT/ADMIN 400.
-- **Gestión:** `/deportes/membresias/gestion` → ADMIN/PROVIDER 200, STAFF 404, CLIENT 404. `/deportes/implementos/reservas` → ADMIN/PROVIDER 200, STAFF 404, CLIENT 404.
-- **Clases:** `/deportes/clases` accesible para todos los roles (200).
-- **CORS:** Preflight `OPTIONS` hacia `/api/v1/deportes/clases` desde `https://sporthub-c14-frontend.onrender.com` devolvió `Access-Control-Allow-Origin` correcto, `Access-Control-Allow-Headers: authorization`, métodos permitidos.
-- **Frontend:** `https://sporthub-c14-frontend.onrender.com` respondió `200`.
+- **Health backend:** `GET /api/v1/health` → `200` con `{"status":"UP","service":"sporthub-backend"}`.
+- **Autenticación:** login `200` para `admin@sporthub.co` (ADMIN), `belleza@sporthub.co` y `deportes@sporthub.co` (PROVIDER), `laura@sporthub.co` y `entrenador@sporthub.co` (STAFF).
+- **Panel admin:** `GET /api/v1/admin/stats` → `200` con `totalUsers: 7`, `totalProviders: 2`, `totalStaff: 2`, `totalFacilities: 2`, `totalClasses: 1`, `totalTournaments: 1`. `GET /api/v1/admin/users` → `200`.
+- **Portales proveedor/staff:** `GET /api/v1/providers/profile` → `200` para los cuatro usuarios, con los IDs canónicos:
+  - Belleza: `002d6edf-c02f-4967-8d50-534b90bb084d`
+  - Deportes: `1f04e0d1-71d9-4ae4-be6a-943824dda611`
+- **Integridad de datos tras el seed:** `provider=2`, `provider_staff=2`, `provider_service=1`, `service_schedule=5`, `instalacion=2`, `clase_grupal=1`, `plan_membresia=1`, `implemento=1`, `torneo=1`; exactamente **1 proveedor y 1 staff por usuario**.
+- **Frontend:** `https://sporthub-c14-frontend.onrender.com` → `200`, mostrando `Fase 3 Final` y `Portales Integrados por Perfil de Usuario`.
 
 ## 10. Fallos, dificultades y limitaciones
 
@@ -132,7 +134,8 @@ Se validaron endpoints con todos los roles (password: `password`):
 - **Render no soporta Azure DevOps**: Incompatibilidad directa entre plataforma elegida y repositorio existente.
 - **Blueprint `property: url` inválido**: El primer intento con `fromService.property: url` fue rechazado por validación (propiedad inexistente para servicios tipo `web`). La documentación de Blueprint requiere `envVarKey: RENDER_EXTERNAL_URL` para URLs públicas.
 - **Protección de rama GitLab**: Token Project Access Token (rol Developer) no podía empujar commit inicial a rama `main` protegida. Solucionado relajando protección temporalmente.
-- **UUID override en seed**: Inconsistencia `@UuidGenerator` vs IDs manuales → referencias FK desalineadas en BD fresca. Solucionado con UPDATE SQL (workaround). Este es un bug de código (no de despliegue) que debería corregirse en `DemoDataInitializer` (no setear IDs manualmente o usar entidades guardadas con IDs generados).
+- **UUID override en seed**: Inconsistencia `@UuidGenerator` vs IDs manuales → referencias FK desalineadas en BD fresca. Corregido en Fase 3 encadenando las entidades persistidas en `DemoDataInitializer`.
+- **Duplicados históricos en PostgreSQL**: versiones anteriores del seed crearon repetidamente `Provider`/`ProviderStaff`, acumulando 15 filas por usuario. El arranque fallaba con `IncorrectResultSizeDataAccessException`. Se limpiaron los duplicados y se cambió a `findFirstByUserId` (commit `454331b`).
 - **Rutas no mapeadas devuelven 500**: Endpoints inexistentes como `/deportes` raíz retornaban 500 en lugar de 404 debido al manejador global de excepciones. Es un comportamiento preexistente (no introducido por despliegue).
 
 ### 10.2 Dificultades
@@ -155,12 +158,14 @@ Se validaron endpoints con todos los roles (password: `password`):
 - **Espejo Azure→GitLab**: push directo a Azure `develop` y GitLab `develop`; a partir de la Fase 3 el pipeline puede repetir el espejo automáticamente con `GITLAB_TOKEN`.
 - **Despliegue por API**: Orquestación directa de DB + backend + frontend con payloads conformes a OpenAPI.
 - **Normalización de API**: `api.ts` asegura sufijo `/api/v1`.
-- **Reparación de datos**: UPDATE SQL para realinear FKs al ID generado de proveedor.
-- **Validación exhaustiva**: Smoke test por rol + CORS + endpoints críticos.
+- **Reparación de datos**: seed encadenado a los IDs generados por persistencia; sin IDs manuales.
+- **Limpieza de duplicados**: se conservaron los registros canónicos por usuario y se eliminaron las filas repetidas y heredadas de `provider`, `provider_staff`, `provider_service`, `service_schedule` y catálogos de deportes.
+- **Arranque tolerante**: `findFirstByUserId` en `ProviderRepository`/`ProviderStaffRepository` evita el fallo si existen filas duplicadas.
+- **Validación exhaustiva**: smoke test de health, login por rol, panel admin, portales proveedor/staff, integridad de datos y frontend.
 
 ## 12. Conclusión
 
-El despliegue fue exitoso. El entorno está **100% operativo** para pruebas funcionales: backend y frontend en Render live, PostgreSQL conectado, autenticación/demo funcionando, reglas de rol respetadas, CORS configurado correctamente. Las principales complejidades fueron la **no-soportación de Azure DevOps por Render**, el **detalle de `RENDER_EXTERNAL_URL`** en Blueprint, y el **bug de semilla** (IDs). Todos fueron resueltos con enfoque pragmático. La solución es reproducible y documentada; en la Fase 3 se solventó permanentemente la inicialización en `DemoDataInitializer` mediante el encadenamiento de entidades persistidas, logrando un despliegue cloud robusto y reproducible.
+El despliegue quedó **operativo y verificado** sobre el commit `454331b`: backend y frontend en Render responden `200`, PostgreSQL conectado, autenticación demo funcionando para ADMIN/PROVIDER/STAFF, panel admin con métricas correctas y portales de proveedor/staff accesibles. Las principales complejidades fueron la **no-soportación de Azure DevOps por Render**, el detalle de **`RENDER_EXTERNAL_URL`** en el Blueprint, el **bug de semilla por UUIDs** y los **duplicados históricos de proveedores/staff**; todos quedaron resueltos en código (`DemoDataInitializer` + `findFirstByUserId`) y en datos (limpieza de registros canónicos). La solución es reproducible y está documentada para futuros despliegues.
 
 ## 13. URLs finales
 
@@ -169,5 +174,7 @@ El despliegue fue exitoso. El entorno está **100% operativo** para pruebas func
 - **Health:** https://sporthub-c14-backend.onrender.com/api/v1/health
 - **GitLab:** https://gitlab.com/udea-fe2026-2/sporthub (rama `develop`)
 - **Azure (origen):** https://dev.azure.com/jisaacrios/Fabrica_escuela_2026_1/_git/sportshub-backend (rama `develop`)
+- **Commit desplegado:** `454331b` (hotfix sobre `b8a9f10`, versión 1.0.0 Fase 3)
+- **Servicios Render:** backend `srv-dbailou1egvs73as0t0g`, frontend `srv-dbailum1egvs73as1i3g`
 
 **Credenciales demo:** `admin@sporthub.co`, `cliente@sporthub.co`, `belleza@sporthub.co`/`laura@sporthub.co` (STAFF), `deportes@sporthub.co` (PROVIDER), `entrenador@sporthub.co` (STAFF) | `password`
