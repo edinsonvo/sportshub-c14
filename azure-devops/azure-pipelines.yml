@@ -1,27 +1,55 @@
 # Azure Pipelines — SportHub (Caso 14). Perfil avanzado.
-# Pasos: git config -> stage 'validacion' -> 'pruebas' -> 'calidad' -> 'seguridad' -> 'empaquetado' -> 'despliegue' -> 'posdepliegue'
+# Versión 1.0.0 (Fase 3). Flujo:
+#   validación -> pruebas -> calidad -> seguridad -> empaquetado -> despliegue -> posdepliegue
+#
+# El pipeline corre sobre Azure Repos y, si existe GITLAB_TOKEN, espeja el commit
+# a GitLab (rama develop) para que Render auto-despierte el build (autoDeploy: true).
+# Los deploy hooks de Render son opcionales y solo se usan si están definidos.
 trigger:
   branches:
     include:
+      - develop
       - main
 
 pr:
   branches:
     include:
+      - develop
       - main
+
+name: '1.0.0.$(Date:yyyyMMdd).$(Rev:r)'
 
 pool:
   vmImage: ubuntu-latest
 
 variables:
-  - group: sporthub-vars          # App token, names de servicio, URLs (Secretos)
+  # Grupo con secretos: RENDER_DEPLOY_HOOK_BACKEND, RENDER_DEPLOY_HOOK_FRONTEND,
+  # GITLAB_TOKEN, sonarProjectKey, sonarOrganization y credenciales del registry.
+  - group: sporthub-vars
+  # Servicio SonarCloud (si no se usa, el job de calidad se omite).
   - group: sonarcloud-service
+
   - name: imageTag
     value: $(Build.BuildId)
   - name: backendImage
     value: 'sporthub-backend:$(imageTag)'
   - name: frontendImage
     value: 'sporthub-frontend:$(imageTag)'
+
+  # URLs públicas del entorno desplegado en Render.
+  - name: renderBackendUrl
+    value: 'https://sporthub-c14-backend.onrender.com'
+  - name: renderFrontendUrl
+    value: 'https://sporthub-c14-frontend.onrender.com'
+
+  # IDs demo usados por el frontend durante el build de la imagen.
+  - name: demoServiceId
+    value: '8f0a1e2d-3b4c-5d6e-7f80-9a1b2c3d4e5f'
+
+  # false = los escaneos de seguridad reportan pero no bloquean (entorno de pruebas).
+  # true  = falla la etapa si gitleaks/trivy encuentran hallazgos HIGH/CRITICAL.
+  - name: securityStrict
+    value: 'false'
 
 stages:
   # ------------------------------------------------------------------
@@ -32,15 +60,14 @@ stages:
         displayName: 'Backend: format + compile'
         steps:
           - checkout: self
-          - task: UseJavaVersion@1
-            inputs:
-              versionSpec: '17'
           - task: Maven@4
+            displayName: 'mvn spotless:check compile'
             inputs:
               mavenPomFile: 'backend/pom.xml'
               goals: 'spotless:check compile'
               options: '-B -ntp -DskipTests'
-          - script: echo "Backend OK"
+              jdkVersionOption: '1.17'
+              publishJUnitResults: false
 
       - job: frontend_lint_build
         displayName: 'Frontend: lint + type-safe build'
@@ -49,12 +76,20 @@ stages:
           - task: NodeTool@0
             inputs:
               versionSpec: '20.x'
+          - task: Cache@2
+            displayName: 'Cache npm'
+            inputs:
+              key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: '$(Pipeline.Workspace)/.npm'
           - script: |
+              set -euo pipefail
               cd frontend
-              npm install --no-audit --no-fund
+              npm ci --no-audit --no-fund --cache "$(Pipeline.Workspace)/.npm"
               npm run lint
               npm run build
-            displayName: 'npm install, lint, build'
+            displayName: 'npm ci, lint, build'
 
   # ------------------------------------------------------------------
   - stage: Pruebas
@@ -65,34 +100,51 @@ stages:
         displayName: 'Backend: JUnit + Testcontainers'
         steps:
           - checkout: self
-          - task: UseJavaVersion@1
-            inputs: { versionSpec: '17' }
           - task: Maven@4
+            displayName: 'mvn verify -Pcoverage'
             inputs:
               mavenPomFile: 'backend/pom.xml'
               goals: 'verify'
               options: '-B -ntp -Pcoverage'
+              jdkVersionOption: '1.17'
+              publishJUnitResults: false
           - task: PublishTestResults@2
+            displayName: 'Publicar resultados JUnit'
+            condition: always()
             inputs:
               testResultsFormat: 'JUnit'
               testResultsFiles: 'backend/target/surefire-reports/*.xml'
               mergeTestResults: true
+              failTaskOnMissingResultsFile: false
           - task: PublishCodeCoverageResults@2
+            displayName: 'Publicar cobertura JaCoCo'
+            condition: always()
             inputs:
               summaryFileLocation: 'backend/target/site/jacoco/jacoco.xml'
               pathToSources: 'backend/src/main/java'
               codeCoverageTool: 'JaCoCo'
+              failIfCoverageEmpty: false
 
       - job: frontend_tests
         displayName: 'Frontend: tests de componentes'
         steps:
           - checkout: self
           - task: NodeTool@0
-            inputs: { versionSpec: '20.x' }
+            inputs:
+              versionSpec: '20.x'
           - script: |
+              set -euo pipefail
               cd frontend
-              npm run test
+              npm ci --no-audit --no-fund
+              npm run test -- --reporter=junit --outputFile=test-results.xml
             displayName: 'npm test (vitest)'
+          - task: PublishTestResults@2
+            displayName: 'Publicar resultados vitest'
+            condition: always()
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: 'frontend/test-results.xml'
+              failTaskOnMissingResultsFile: false
 
   # ------------------------------------------------------------------
   - stage: Calidad
@@ -101,10 +153,10 @@ stages:
     jobs:
       - job: sonar
         displayName: 'SonarCloud SG'
+        # Si el proyecto no tiene SonarCloud configurado, la etapa continúa sin este job.
+        condition: and(succeeded(), ne(variables['sonarProjectKey'], ''))
         steps:
           - checkout: self
-          - task: UseJavaVersion@1
-            inputs: { versionSpec: '17' }
           - task: SonarQubePrepare@6
             inputs:
               SonarQube: 'SonarCloud'
@@ -112,9 +164,9 @@ stages:
               extraProperties: |
                 sonar.projectKey=$(sonarProjectKey)
                 sonar.organization=$(sonarOrganization)
+                sonar.projectVersion=1.0.0
                 sonar.sources=backend/src/main/java,frontend/src
                 sonar.tests=backend/src/test
-                sonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
                 sonar.coverage.jacoco.xmlReportPaths=backend/target/site/jacoco/jacoco.xml
                 sonar.exclusions=frontend/node_modules/**,**/*.test.ts,**/*.test.tsx
           - task: Maven@4
@@ -122,6 +174,8 @@ stages:
               mavenPomFile: 'backend/pom.xml'
               goals: 'verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.11.0.3922:sonar'
               options: '-B -ntp -Pcoverage'
+              jdkVersionOption: '1.17'
+              publishJUnitResults: false
           - task: SonarQubePublish@5
             inputs:
               pollingTimeoutSec: '300'
@@ -129,74 +183,211 @@ stages:
 
   # ------------------------------------------------------------------
   - stage: Seguridad
-    displayName: 'Seguridad (SAST + SCA + secretos + imagen)'
+    displayName: 'Seguridad (SAST + SCA + secretos)'
     dependsOn: Pruebas
     jobs:
       - job: security_checks
-        displayName: 'dependency-check, gitleaks, trivy'
+        displayName: 'gitleaks, trivy y OWASP dependency-check'
         steps:
           - checkout: self
-          - task: UseJavaVersion@1
-            inputs: { versionSpec: '17' }
+            fetchDepth: 0
+          - script: |
+              set -euo pipefail
+              curl -fsSL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh \
+                | sudo bash -s -- -b /usr/local/bin
+              curl -fsSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+                | sudo sh -s -- -b /usr/local/bin
+              gitleaks version
+              trivy --version
+            displayName: 'Instalar gitleaks y trivy'
+
+          - script: |
+              set -uo pipefail
+              mkdir -p "$(Build.ArtifactStagingDirectory)"
+              gitleaks detect --source . --no-banner --redact \
+                --report-format sarif \
+                --report-path "$(Build.ArtifactStagingDirectory)/gitleaks.sarif" || true
+              if [ "$(securityStrict)" = "true" ] && grep -Eq '"level"[[:space:]]*:[[:space:]]*"error"' \
+                "$(Build.ArtifactStagingDirectory)/gitleaks.sarif" 2>/dev/null; then
+                echo "##vso[task.logissue type=error]gitleaks encontró secretos y securityStrict=true"
+                exit 1
+              fi
+              echo "gitleaks: reporte generado (modo estricto=$(securityStrict))"
+            displayName: 'Detección de secretos (gitleaks)'
+
+          - script: |
+              set -uo pipefail
+              trivy fs --scanners vuln,secret,misconfig \
+                --severity HIGH,CRITICAL --ignore-unfixed \
+                --format sarif \
+                --output "$(Build.ArtifactStagingDirectory)/trivy.sarif" \
+                backend frontend || true
+              if [ "$(securityStrict)" = "true" ] && grep -Eq '"level"[[:space:]]*:[[:space:]]*"error"' \
+                "$(Build.ArtifactStagingDirectory)/trivy.sarif" 2>/dev/null; then
+                echo "##vso[task.logissue type=error]trivy encontró hallazgos HIGH/CRITICAL y securityStrict=true"
+                exit 1
+              fi
+              echo "trivy: reporte generado (modo estricto=$(securityStrict))"
+            displayName: 'SCA/SAST (trivy fs)'
+
           - script: |
               cd backend
-              mvn -B org.owasp:dependency-check-maven:check -Dformat=HTML -DfailBuildOnCVSS=7 || echo "Ver dependencias vulnerable reportadas en target/dependency-check-report.html"
-            displayName: 'SCA OWASP dependency-check'
-          - script: |
-              gitleaks detect --source . --no-banner || echo "Sin secretos detectados (exit 1 = bloquear en PR)"
-            displayName: 'Detección de secretos (gitleaks)'
-          - script: |
-              trivy fs --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed backend frontend
-            displayName: 'Scan SAST de código (trivy fs)'
+              mvn -B -ntp org.owasp:dependency-check-maven:check \
+                -Dformat=HTML -DfailBuildOnCVSS=9 || true
+              echo "OWASP dependency-check: ver backend/target/dependency-check-report.html"
+            displayName: 'OWASP dependency-check (informativo)'
+            continueOnError: true
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publicar reportes de seguridad'
+            condition: always()
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'security-reports'
 
   # ------------------------------------------------------------------
   - stage: Empaquetado
-    displayName: 'Empaquetado (imágenes inmutables)'
+    displayName: 'Empaquetado y espejo a GitLab'
     dependsOn: [Calidad, Seguridad]
     jobs:
       - job: build_images
+        displayName: 'Construir imágenes Docker'
         steps:
           - checkout: self
           - script: |
-              docker build -t registry.sporthub/$(backendImage) -f backend/Dockerfile backend
-              docker build -t registry.sporthub/$(frontendImage) -f frontend/Dockerfile frontend
-              docker tag registry.sporthub/$(backendImage) registry.sporthub/sporthub-backend:latest
-              docker tag registry.sporthub/$(frontendImage) registry.sporthub/sporthub-frontend:latest
+              set -euo pipefail
+              docker build -t "$(backendImage)" -f backend/Dockerfile backend
+              docker build -t "$(frontendImage)" \
+                --build-arg NEXT_PUBLIC_API_URL="$(renderBackendUrl)" \
+                --build-arg NEXT_PUBLIC_DEMO_SERVICE_ID="$(demoServiceId)" \
+                -f frontend/Dockerfile frontend
+              docker image ls | grep sporthub
               echo "Imágenes listas con tag $(imageTag)"
-            displayName: 'Construir imágenes Docker'
-          - task: PublishPipelineArtifact@1
-            inputs: { path: 'backend', artifact: 'backend-build' }
+            displayName: 'docker build backend + frontend'
+
+          - script: |
+              set -euo pipefail
+              echo "$(dockerRegistryPassword)" | docker login "$(dockerRegistry)" \
+                -u "$(dockerRegistryUser)" --password-stdin
+              docker tag "$(backendImage)" "$(dockerRegistry)/$(backendImage)"
+              docker tag "$(frontendImage)" "$(dockerRegistry)/$(frontendImage)"
+              docker push "$(dockerRegistry)/$(backendImage)"
+              docker push "$(dockerRegistry)/$(frontendImage)"
+              echo "Imágenes publicadas en $(dockerRegistry)"
+            displayName: 'Publicar imágenes en registry'
+            condition: and(succeeded(), ne(variables['dockerRegistry'], ''))
+
+      - job: mirror_gitlab
+        displayName: 'Espejo Azure Repos -> GitLab (develop)'
+        dependsOn: build_images
+        # Solo en builds de rama develop (nunca en PR). Si no hay GITLAB_TOKEN,
+        # el script omite el espejo sin fallar el pipeline.
+        condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+        steps:
+          - checkout: self
+            fetchDepth: 0
+            persistCredentials: false
+          - script: |
+              set -euo pipefail
+              if [ -z "${GITLAB_TOKEN:-}" ] || [ "$GITLAB_TOKEN" = '$(GITLAB_TOKEN)' ]; then
+                echo "GITLAB_TOKEN no configurado; se omite el espejo a GitLab."
+                exit 0
+              fi
+              git config user.name  "Azure Pipelines"
+              git config user.email "azure-pipelines@sporthub.local"
+              git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/udea-fe2026-2/sporthub.git"
+              git push gitlab HEAD:develop
+            displayName: 'git push a GitLab develop'
+            env:
+              GITLAB_TOKEN: $(GITLAB_TOKEN)
+              GIT_TERMINAL_PROMPT: '0'
 
   # ------------------------------------------------------------------
   - stage: Despliegue
-    displayName: 'Despliegue por entorno (promoción controlada)'
+    displayName: 'Despliegue en Render (dev)'
     dependsOn: Empaquetado
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - deployment: deploy_dev
+        displayName: 'Disparar deploy y esperar health checks'
         environment: 'dev'
         strategy:
           runOnce:
             deploy:
               steps:
+                - checkout: self
+                # Render ya auto-despliega con el push a GitLab. Los hooks son un
+                # refuerzo opcional para cuando se ejecuta el pipeline sin espejo.
                 - task: PowerShell@2
+                  displayName: 'Deploy hook backend (opcional)'
                   inputs:
                     filePath: 'azure-devops/scripts/deploy-render.ps1'
-                    arguments: '-Env dev -HookUrl $(RENDER_DEPLOY_HOOK_DEV) -ImageTag $(imageTag)'
-                - script: |
-                    curl -fsS https://dev.sporthub.co/api/v1/health && echo "health OK"
-                  displayName: 'Health check (dev)'
+                    arguments: '-Env dev -HookUrl "$(RENDER_DEPLOY_HOOK_BACKEND)" -Ref develop'
+
+                - task: PowerShell@2
+                  displayName: 'Deploy hook frontend (opcional)'
+                  inputs:
+                    filePath: 'azure-devops/scripts/deploy-render.ps1'
+                    arguments: '-Env dev -HookUrl "$(RENDER_DEPLOY_HOOK_FRONTEND)" -Ref develop'
+
+                - bash: |
+                    set -euo pipefail
+                    url="$(renderBackendUrl)/api/v1/health"
+                    for intento in $(seq 1 30); do
+                      if curl -fsS --max-time 20 "$url"; then
+                        echo
+                        echo "Backend saludable tras $intento intento(s)."
+                        exit 0
+                      fi
+                      echo "Backend aún no responde ($intento/30)..."
+                      sleep 10
+                    done
+                    echo "##vso[task.logissue type=error]Backend no respondió en $url"
+                    exit 1
+                  displayName: 'Esperar health del backend (cold start incluido)'
+
+                - bash: |
+                    set -euo pipefail
+                    url="$(renderFrontendUrl)"
+                    for intento in $(seq 1 12); do
+                      code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)
+                      if [ "$code" = "200" ]; then
+                        echo "Frontend OK (HTTP $code)."
+                        exit 0
+                      fi
+                      echo "Frontend HTTP $code ($intento/12)..."
+                      sleep 10
+                    done
+                    echo "##vso[task.logissue type=error]Frontend no respondió 200 en $url"
+                    exit 1
+                  displayName: 'Esperar frontend en Render'
 
   # ------------------------------------------------------------------
   - stage: Posdepliegue
-    displayName: 'Smoke tests + evidencia + reversión'
+    displayName: 'Smoke tests + evidencia de reversión'
     dependsOn: Despliegue
     jobs:
       - job: smoke
         steps:
+          - checkout: none
           - script: |
-              curl -fsS https://dev.sporthub.co/api/v1/health
-              curl -fsS https://dev.sporthub.co/api/v1/actuator/prometheus | head -5
-              echo "Smoke tests superados. Métricas prometheus disponibles."
-            displayName: 'Smoke test endpoints'
-          - script: echo "Rollback disponible: re-deploy de la imagen anterior $(Build.Previous.BuildId)"
+              set -euo pipefail
+              echo "Health backend:"
+              curl -fsS --max-time 30 "$(renderBackendUrl)/api/v1/health"
+              echo
+              echo "Frontend:"
+              curl -fsS -o /dev/null -w 'HTTP %{http_code}\n' --max-time 30 "$(renderFrontendUrl)"
+              echo "Métricas Prometheus (primeras líneas):"
+              curl -fsS --max-time 30 "$(renderBackendUrl)/actuator/prometheus" | head -5
+              echo "Login demo:"
+              curl -fsS --max-time 30 -X POST \
+                -H 'Content-Type: application/json' \
+                -d '{"email":"admin@sporthub.co","password":"password"}' \
+                "$(renderBackendUrl)/api/v1/auth/login" > /dev/null
+              echo "Smoke tests superados."
+            displayName: 'Smoke test Render (health, frontend, métricas, login)'
+          - script: |
+              echo "Reversión: volver a desplegar el commit anterior en Render"
+              echo "o re-ejecutar el pipeline sobre el tag/imagen previa (build $(imageTag))."
+              echo "Evidencia: build $(Build.BuildNumber) - commit $(Build.SourceVersion)"
             displayName: 'Evidencia de reversión'

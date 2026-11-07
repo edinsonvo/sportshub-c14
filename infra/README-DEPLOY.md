@@ -30,7 +30,9 @@ Contraseña de los usuarios demo = `password` (solo demo, cambiar para producci�
 | ADMIN   | admin@sporthub.co    |
 | Cliente | cliente@sporthub.co  |
 | Proveedor | belleza@sporthub.co |
-| Personal| laura@sporthub.co    |
+| Proveedor | deportes@sporthub.co |
+| Personal | laura@sporthub.co    |
+| Personal | entrenador@sporthub.co |
 
 Prueba rápida:
 
@@ -46,20 +48,32 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ## 2. Despliegue en nube (Render, blueprint)
 
-1. Subir el repositorio a GitHub (`main` protegida; ramas `feature/<HU>-<desc>`).
-2. Crear en Render: **New + → Blueprint** apuntando al repo; seleccionar `infra/render/render.yaml`.
+1. Mantener el código en Azure Repos (`develop`) y espejarlo a GitLab (`udea-fe2026-2/sporthub`,
+   rama `develop`), porque Render no integra Azure DevOps.
+2. En Render: **New + → Blueprint** apuntando al repo de GitLab; seleccionar `infra/render/render.yaml`.
 3. Definir secretos en cada servicio (el blueprint marca `sync: false`):
    - `JWT_SECRET` (≥32 bytes).
-   - (Neon/Supabase) `DATABASE_URL` según servicio admin.
-4. Verificar health: `https://sporthub-backend.onrender.com/api/v1/health`.
-5. Conectar el Deploy Hook de cada servicio a Azure Pipelines (`RENDER_DEPLOY_HOOK_DEV`, etc.).
+4. Verificar health: `https://sporthub-c14-backend.onrender.com/api/v1/health`.
+5. El blueprint tiene `autoDeploy: true`: cada push a GitLab `develop` redespliega backend y frontend.
+   Los Deploy Hooks de Render (`RENDER_DEPLOY_HOOK_BACKEND`/`RENDER_DEPLOY_HOOK_FRONTEND`) son opcionales.
+
+| Servicio | URL |
+|----------|-----|
+| Frontend | https://sporthub-c14-frontend.onrender.com |
+| Backend | https://sporthub-c14-backend.onrender.com |
+| Health | https://sporthub-c14-backend.onrender.com/api/v1/health |
+| Swagger | https://sporthub-c14-backend.onrender.com/swagger-ui.html |
 
 ## 3. Pipeline CI/CD (Azure DevOps)
 
-- Subir `azure-devops/azure-pipelines.yml` a la raíz del repo y crear el pipeline en la organización.
-- Variable groups: `sporthub-vars` (PAT, Deploy Hooks, URLs) y `sonarcloud-service` (token/org/projectKey).
-- Etapas: Validación → Pruebas → Calidad (SonarCloud Quality Gate) → Seguridad (SCA/SAST/secretos/Trivy) → Empaquetado (imágenes inmutables) → Despliegue (promoción dev) → Posdepliegue (smoke tests + evidencia de reversión).
+- Importar `azure-devops/azure-pipelines.yml` en el proyecto `Fabrica_escuela_2026_1`.
+- Variable groups: `sporthub-vars` (secretos) y `sonarcloud-service` (SonarCloud).
+  Variables clave: `GITLAB_TOKEN`, `RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`,
+  `sonarProjectKey`, `sonarOrganization`, `securityStrict`.
+- Etapas: Validación → Pruebas → Calidad (SonarCloud Quality Gate) → Seguridad (gitleaks + trivy + OWASP) →
+  Empaquetado (Docker + espejo a GitLab) → Despliegue (Render + health checks) → Posdepliegue (smoke tests).
 - **PR policy**: comprobaciones obligatorias = pipeline en PR; mínimo 1 reviewer.
+- El despliegue no se ejecuta en PR (`Build.Reason != PullRequest`).
 
 ## 4. Observabilidad
 

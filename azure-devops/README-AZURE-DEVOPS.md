@@ -1,4 +1,4 @@
-# Entorno de Gestión en Azure DevOps — Fabrica_escuela_2026_2 (Caso 14)
+# Entorno de Gestión en Azure DevOps — Fabrica_escuela_2026_1 (Caso 14)
 
 Guía para replicar el entorno operativo de gestión del proyecto **SportHub** en Azure DevOps,
 alineada con los *Lineamientos Integrados CodeF@ctory v2.0* (proyecto avanzado).
@@ -9,24 +9,27 @@ alineada con los *Lineamientos Integrados CodeF@ctory v2.0* (proyecto avanzado).
 
 | Recurso                | Proveedor | Uso                                                            |
 |------------------------|-----------|----------------------------------------------------------------|
-| Código fuente          | GitHub    | Repositorio `sporthub` (monorepo), `main` protegida              |
-| Backlog + métricas     | Azure DevOps (org `fabrica-escuela-2026-1`) | Product/proyecto `Fabrica_escuela_2026_1` |
-| CI/CD                  | Azure Pipelines | `azure-pipelines.yml` (etapas validación→pruebas→calidad→seguridad→empaquetado→despliegue→posdepliegue) |
+| Código fuente          | Azure Repos (`jisaacrios/Fabrica_escuela_2026_1`) | Monorepo `sportshub-backend`, ramas `develop` y `main` |
+| Espejo de despliegue   | GitLab (`udea-fe2026-2/sporthub`) | Rama `develop`; Render no soporta Azure Repos |
+| Backlog + métricas     | Azure DevOps (org `jisaacrios`) | Proyecto `Fabrica_escuela_2026_1` |
+| CI/CD                  | Azure Pipelines | `azure-devops/azure-pipelines.yml` (validación→pruebas→calidad→seguridad→empaquetado→despliegue→posdepliegue) |
 | Control de calidad     | SonarCloud, proyecto `sporthub` | Quality Gate: cobertura ≥65 %, deuda ≤2 días, complejidad <50, 0 vulnerabilidades críticas |
-| Nube de despliegue     | Render (blueprint `infra/render/render.yaml`) | Backend + frontend contenerizados; PostgreSQL administrado (Supabase/Neon) |
+| Nube de despliegue     | Render (blueprint `infra/render/render.yaml`) | Backend + frontend contenerizados + PostgreSQL administrado |
 | Observabilidad         | Prometheus + Grafana | Dashboards y alertas (`infra/`) |
 
 ## 2. Creación del proyecto
 
-1. **Organización**: `https://dev.azure.com/<org>` — crear proyecto público/privado **`Fabrica_escuela_2026_1`**.
+1. **Organización**: `https://dev.azure.com/jisaacrios` — proyecto privado **`Fabrica_escuela_2026_1`**.
 2. **Proceso**: elegir **Scrum** (Backlog Items) para usar épicas, features, HU y sprints.
 3. **Áreas**: Área raíz `Fabrica_escuela_2026_1` + sub-áreas opcionales `Reservas`, `Seguridad`, `Reportes`.
 4. **Iteraciones** (Sprints de 3 semanas):
    - `Fabrica_escuela_2026_1\Sprint 1` (registro/auth + KYC + agendar cita)
    - `Fabrica_escuela_2026_1\Sprint 2` (servicios, agenda, personal, confirmación)
    - `Fabrica_escuela_2026_1\Sprint 3` (historiales, filtros, reportes, MFA, auditoría)
-5. **Repositorio**: conectar GitHub (`Azure Repos` o servicio de conexión GitHub) y proteger `main`
+5. **Repositorio**: Azure Repos `Fabrica_escuela_2026_1/sportshub-backend`; proteger `main` y `develop`
    (*branch protection*: mínimo 1 reviewer, comprobaciones obligatorias = pipeline PR).
+6. **Espejo GitLab**: `udea-fe2026-2/sporthub` en rama `develop`. El pipeline lo actualiza
+   automáticamente si existe `GITLAB_TOKEN` en el grupo `sporthub-vars`.
 
 ## 3. Importar el backlog
 
@@ -71,6 +74,8 @@ use `feature/HU-XX-<descripción>`).
 
 ## 8. Enlaces de referencia
 
-- Caso 14 — Handbook de Casos 2026-2.
-- Lineamientos Integrados CodeF@ctory v2.0.
-- Documento de Análisis y Diseño (este repositorio, `docs/`).
+- Azure Repos: https://dev.azure.com/jisaacrios/Fabrica_escuela_2026_1/_git/sportshub-backend
+- GitLab (espejo): https://gitlab.com/udea-fe2026-2/sporthub
+- Frontend Render: https://sporthub-c14-frontend.onrender.com
+- Backend Render: https://sporthub-c14-backend.onrender.com
+- Health: https://sporthub-c14-backend.onrender.com/api/v1/health
