@@ -31,6 +31,13 @@ venv/
 .DS_Store
 Thumbs.db
 
+# R
+.Rhistory
+.RData
+
+# Render CLI / logs locales
+render-local.yaml
+
 # Editores/temporales
 *.swp
 *.swo
