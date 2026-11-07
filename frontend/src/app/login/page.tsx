@@ -35,6 +35,13 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
 
+  function redirectByRole(role: string) {
+    if (role === "ADMIN") router.push("/admin");
+    else if (role === "PROVIDER") router.push("/proveedor");
+    else if (role === "STAFF") router.push("/empleado");
+    else router.push("/dashboard");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -60,7 +67,7 @@ export default function LoginPage() {
         email: result.email,
         role: result.role,
       });
-      router.push("/dashboard");
+      redirectByRole(result.role);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Error al iniciar sesión");
     } finally {
@@ -91,7 +98,11 @@ export default function LoginPage() {
     try {
       const result = await api<LoginResult>("/auth/mfa/verify", {
         method: "POST",
-        body: JSON.stringify({ challengeToken: challenge.challengeToken, method, code }),
+        body: JSON.stringify({
+          challengeToken: challenge.challengeToken,
+          method,
+          code,
+        }),
       });
       saveSession({
         accessToken: result.accessToken,
@@ -100,7 +111,7 @@ export default function LoginPage() {
         email: result.email,
         role: result.role,
       });
-      router.push("/dashboard");
+      redirectByRole(result.role);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Código inválido");
     } finally {
@@ -116,21 +127,21 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <main className="flex min-h-[85vh] items-center justify-center px-4 py-8">
+      <Card className="w-full max-w-md shadow-md border-gray-200">
         <CardHeader>
-          <h1 className="text-xl font-semibold">
-            {challenge ? "Verificación en dos pasos" : "Iniciar sesión"}
+          <h1 className="text-xl font-bold text-gray-900">
+            {challenge ? "Verificación en dos pasos" : "Iniciar sesión en SportHub"}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs text-gray-500 mt-1">
             {challenge
               ? `Se requiere un código adicional para ${challenge.email}.`
-              : "Accede a tu cuenta de SportHub"}
+              : "Ingresa tus credenciales o usa las cuentas demo en la barra superior."}
           </p>
         </CardHeader>
         <CardContent>
           {error ? (
-            <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">
+            <p className="mb-4 rounded-md bg-red-50 p-3 text-xs font-medium text-red-700 border border-red-200" role="alert">
               {error}
             </p>
           ) : null}
@@ -146,15 +157,25 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <Input
-                label="Contraseña"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div>
+                <Input
+                  label="Contraseña"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <div className="mt-1 text-right">
+                  <Link
+                    href="/recuperar-password"
+                    className="text-xs text-primary-700 hover:underline"
+                  >
+                    ¿Olvidaste tu contraseña? (HU-15)
+                  </Link>
+                </div>
+              </div>
               <Button type="submit" disabled={loading}>
                 {loading ? "Ingresando…" : "Ingresar"}
               </Button>
@@ -179,7 +200,7 @@ export default function LoginPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600">
+                <p className="text-xs text-gray-600">
                   Método:{" "}
                   {challenge.methods[0] === "TOTP"
                     ? "app de autenticación"
@@ -219,19 +240,19 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={resetFlow}
-                className="text-center text-sm text-gray-500 hover:underline"
+                className="text-center text-xs text-gray-500 hover:underline"
               >
                 Usar otro correo
               </button>
             </form>
           )}
 
-          <p className="mt-4 text-center text-sm text-gray-600">
+          <div className="mt-6 border-t border-gray-100 pt-4 text-center text-xs text-gray-600">
             ¿No tienes cuenta?{" "}
-            <Link href="/registro" className="font-medium text-primary-700 hover:underline">
-              Regístrate
+            <Link href="/registro" className="font-semibold text-primary-700 hover:underline">
+              Regístrate aquí
             </Link>
-          </p>
+          </div>
         </CardContent>
       </Card>
     </main>

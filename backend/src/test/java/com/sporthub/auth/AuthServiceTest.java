@@ -27,6 +27,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class AuthServiceTest {
 
     private UserRepository userRepository;
+    private com.sporthub.reservas.ProviderRepository providerRepository;
     private PasswordEncoder passwordEncoder;
     private JwtService jwtService;
     private LoginAttemptService loginAttemptService;
@@ -37,13 +38,20 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
+        providerRepository = mock(com.sporthub.reservas.ProviderRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         jwtService = mock(JwtService.class);
         loginAttemptService = mock(LoginAttemptService.class);
         mfaService = mock(MfaService.class);
         auditLogger = mock(AuditLogger.class);
         service = new AuthService(
-                userRepository, passwordEncoder, jwtService, loginAttemptService, mfaService, auditLogger);
+                userRepository,
+                providerRepository,
+                passwordEncoder,
+                jwtService,
+                loginAttemptService,
+                mfaService,
+                auditLogger);
     }
 
     private UserAccount user() {
@@ -62,8 +70,10 @@ class AuthServiceTest {
         when(user.isMfaEnabled()).thenReturn(false);
         when(userRepository.findByEmail("user@mail.co")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pass", user.getPasswordHash())).thenReturn(true);
-        when(jwtService.generateAccessToken("user@mail.co", user.getId(), "CLIENT")).thenReturn("acc");
-        when(jwtService.generateRefreshToken("user@mail.co", user.getId(), "CLIENT")).thenReturn("ref");
+        when(jwtService.generateAccessToken("user@mail.co", user.getId(), "CLIENT"))
+                .thenReturn("acc");
+        when(jwtService.generateRefreshToken("user@mail.co", user.getId(), "CLIENT"))
+                .thenReturn("ref");
 
         AuthResponse response = service.login(new LoginRequest("user@mail.co", "pass"));
 
@@ -94,8 +104,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail("user@mail.co")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pass", user.getPasswordHash())).thenReturn(true);
         UUID id = user.getId();
-        AuthResponse pending =
-                AuthResponse.pending(id, "user@mail.co", "CLIENT", List.of(MfaMethod.TOTP), "ch");
+        AuthResponse pending = AuthResponse.pending(id, "user@mail.co", "CLIENT", List.of(MfaMethod.TOTP), "ch");
         when(mfaService.beginChallenge(user)).thenReturn(pending);
 
         AuthResponse response = service.login(new LoginRequest("user@mail.co", "pass"));
@@ -114,7 +123,8 @@ class AuthServiceTest {
         when(jwtService.generateAccessToken("nuevo@mail.co", null, "CLIENT")).thenReturn("acc");
         when(jwtService.generateRefreshToken("nuevo@mail.co", null, "CLIENT")).thenReturn("ref");
 
-        AuthResponse response = service.register(new RegisterRequest("nuevo@mail.co", "Passw0rd1", "Nombre", "300", null));
+        AuthResponse response =
+                service.register(new RegisterRequest("nuevo@mail.co", "Passw0rd1", "Nombre", "300", null));
 
         assertThat(response.email()).isEqualTo("nuevo@mail.co");
         assertThat(response.role()).isEqualTo("CLIENT");
@@ -125,7 +135,8 @@ class AuthServiceTest {
     @DisplayName("registro con email en uso lanza conflicto")
     void registroEmailEnUso() {
         when(userRepository.existsByEmail("nuevo@mail.co")).thenReturn(true);
-        assertThatThrownBy(() -> service.register(new RegisterRequest("nuevo@mail.co", "Passw0rd1", "Nombre", null, null)))
+        assertThatThrownBy(
+                        () -> service.register(new RegisterRequest("nuevo@mail.co", "Passw0rd1", "Nombre", null, null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("ya está registrado");
     }

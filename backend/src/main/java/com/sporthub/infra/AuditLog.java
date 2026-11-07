@@ -43,4 +43,32 @@ public class AuditLog {
         this.actorId = actorId;
         this.details = details;
     }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public String getEntityName() {
+        return entityName;
+    }
+
+    public String getEntityId() {
+        return entityId;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public String getActorId() {
+        return actorId;
+    }
+
+    public String getDetails() {
+        return details;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

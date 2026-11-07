@@ -81,14 +81,15 @@ class AppointmentServiceTest {
             return created;
         });
 
+        LocalDate targetDate = LocalDate.now().plusDays(1);
         CreateAppointmentRequest request = new CreateAppointmentRequest(
-                providerService.getId(), schedule.getStaffId(), LocalDate.of(2026, 10, 1), LocalTime.of(9, 0));
+                providerService.getId(), schedule.getStaffId(), targetDate, LocalTime.of(9, 0));
 
         AppointmentResponse response = service.create(client, request);
 
         assertThat(response.status()).isEqualTo(AppointmentStatus.SOLICITADA);
         assertThat(response.staffId()).isEqualTo(schedule.getStaffId());
-        assertThat(response.date()).isEqualTo(LocalDate.of(2026, 10, 1));
+        assertThat(response.date()).isEqualTo(targetDate);
         assertThat(response.id()).isNotNull();
     }
 
@@ -98,8 +99,9 @@ class AppointmentServiceTest {
         when(serviceRepository.findByIdAndActiveTrue(any())).thenReturn(Optional.of(providerService));
         when(availabilityChecker.hasConflict(any(), any(), any(), any())).thenReturn(true);
 
+        LocalDate targetDate = LocalDate.now().plusDays(1);
         CreateAppointmentRequest request = new CreateAppointmentRequest(
-                providerService.getId(), schedule.getStaffId(), LocalDate.of(2026, 10, 1), LocalTime.of(9, 0));
+                providerService.getId(), schedule.getStaffId(), targetDate, LocalTime.of(9, 0));
 
         assertThatThrownBy(() -> service.create(client, request))
                 .isInstanceOf(BusinessException.class)

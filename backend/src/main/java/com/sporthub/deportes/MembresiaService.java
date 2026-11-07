@@ -131,7 +131,8 @@ public class MembresiaService {
     public List<MembresiaGestionResponse> gestion(UserAccount caller) {
         List<UUID> planIds;
         if (caller.getRole() == Role.ADMIN) {
-            planIds = planRepository.findAll().stream().map(PlanMembresia::getId).toList();
+            planIds =
+                    planRepository.findAll().stream().map(PlanMembresia::getId).toList();
         } else {
             UUID providerId = providerRepository
                     .findByUserId(caller.getId())
@@ -149,10 +150,14 @@ public class MembresiaService {
         Map<UUID, String> nombresPlan = planRepository.findAllById(planIds).stream()
                 .filter(p -> p.getId() != null)
                 .collect(Collectors.toMap(PlanMembresia::getId, PlanMembresia::getNombre));
-        Map<UUID, String> nombresCliente = userRepository
-                .findAllById(membresias.stream().map(Membresia::getClientId).distinct().toList())
-                .stream()
-                .collect(Collectors.toMap(UserAccount::getId, UserAccount::getFullName));
+        Map<UUID, String> nombresCliente =
+                userRepository
+                        .findAllById(membresias.stream()
+                                .map(Membresia::getClientId)
+                                .distinct()
+                                .toList())
+                        .stream()
+                        .collect(Collectors.toMap(UserAccount::getId, UserAccount::getFullName));
         return membresias.stream()
                 .map(m -> new MembresiaGestionResponse(
                         m.getId(),

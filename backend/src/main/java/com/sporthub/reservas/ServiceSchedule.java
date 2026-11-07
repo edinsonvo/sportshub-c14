@@ -70,24 +70,48 @@ public class ServiceSchedule {
         return providerServiceId;
     }
 
+    public void setProviderServiceId(UUID providerServiceId) {
+        this.providerServiceId = providerServiceId;
+    }
+
     public UUID getProviderId() {
         return providerId;
+    }
+
+    public void setProviderId(UUID providerId) {
+        this.providerId = providerId;
     }
 
     public UUID getStaffId() {
         return staffId;
     }
 
+    public void setStaffId(UUID staffId) {
+        this.staffId = staffId;
+    }
+
     public DayOfWeek getDayOfWeek() {
         return dayOfWeek;
+    }
+
+    public void setDayOfWeek(DayOfWeek dayOfWeek) {
+        this.dayOfWeek = dayOfWeek;
     }
 
     public LocalTime getStartTime() {
         return startTime;
     }
 
+    public void setStartTime(LocalTime startTime) {
+        this.startTime = startTime;
+    }
+
     public LocalTime getEndTime() {
         return endTime;
+    }
+
+    public void setEndTime(LocalTime endTime) {
+        this.endTime = endTime;
     }
 
     public boolean isBlocked() {

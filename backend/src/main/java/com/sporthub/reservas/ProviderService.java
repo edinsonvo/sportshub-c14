@@ -61,20 +61,40 @@ public class ProviderService {
         return providerId;
     }
 
+    public void setProviderId(UUID providerId) {
+        this.providerId = providerId;
+    }
+
     public String getName() {
         return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getDescription() {
         return description;
     }
 
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public int getDurationMinutes() {
         return durationMinutes;
     }
 
+    public void setDurationMinutes(int durationMinutes) {
+        this.durationMinutes = durationMinutes;
+    }
+
     public BigDecimal getPrice() {
         return price;
+    }
+
+    public void setPrice(BigDecimal price) {
+        this.price = price;
     }
 
     public boolean isActive() {

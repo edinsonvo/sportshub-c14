@@ -61,8 +61,16 @@ public class Provider {
         return businessName;
     }
 
+    public void setBusinessName(String businessName) {
+        this.businessName = businessName;
+    }
+
     public String getDocumentNumber() {
         return documentNumber;
+    }
+
+    public void setDocumentNumber(String documentNumber) {
+        this.documentNumber = documentNumber;
     }
 
     public boolean isIdentityVerified() {

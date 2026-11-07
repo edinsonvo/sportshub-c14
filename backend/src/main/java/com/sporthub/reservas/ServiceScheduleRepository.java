@@ -11,6 +11,10 @@ public interface ServiceScheduleRepository extends JpaRepository<ServiceSchedule
     List<ServiceSchedule> findByProviderServiceIdAndDayOfWeekAndBlockedFalse(
             UUID providerServiceId, DayOfWeek dayOfWeek);
 
+    List<ServiceSchedule> findByProviderServiceId(UUID providerServiceId);
+
+    List<ServiceSchedule> findByStaffId(UUID staffId);
+
     List<ServiceSchedule> findByProviderIdOrderByDayOfWeekAscStartTimeAsc(UUID providerId);
 
     List<ServiceSchedule> findByIdInAndBlockedFalse(Collection<UUID> ids);

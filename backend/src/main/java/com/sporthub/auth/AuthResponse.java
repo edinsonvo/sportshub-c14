@@ -20,11 +20,13 @@ public record AuthResponse(
         return new AuthResponse(accessToken, refreshToken, "Bearer", userId, email, role, false, List.of(), null);
     }
 
-    public static AuthResponse pending(UUID userId, String email, String role, List<MfaMethod> methods, String challenge) {
+    public static AuthResponse pending(
+            UUID userId, String email, String role, List<MfaMethod> methods, String challenge) {
         return new AuthResponse(null, null, null, userId, email, role, true, methods, challenge);
     }
 
-    public record Info(UUID id, String email, String fullName, boolean mfaRequired, String mfaMethod, Instant createdAt) {
+    public record Info(
+            UUID id, String email, String fullName, boolean mfaRequired, String mfaMethod, Instant createdAt) {
         public Info(UUID id, String email, String fullName, boolean mfaRequired, Instant createdAt) {
             this(id, email, fullName, mfaRequired, null, createdAt);
         }

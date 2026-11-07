@@ -40,7 +40,12 @@ class MembresiaServiceTest {
         AuditLogger auditLogger = mock(AuditLogger.class);
         metrics = mock(SportHubMetrics.class);
         service = new MembresiaService(
-                planRepository, membresiaRepository, providerRepository, mock(UserRepository.class), auditLogger, metrics);
+                planRepository,
+                membresiaRepository,
+                providerRepository,
+                mock(UserRepository.class),
+                auditLogger,
+                metrics);
 
         UUID clientId = UUID.randomUUID();
         cliente = mock(UserAccount.class);
@@ -118,12 +123,13 @@ class MembresiaServiceTest {
         when(proveedor.getRole()).thenReturn(Role.PROVIDER);
         when(providerRepository.findByUserId(any())).thenReturn(Optional.of(provider));
 
-        PlanMembresia plan2 = new PlanMembresia(
-                providerId, "Pack anual", 365, 25, new BigDecimal("600000.00"), "Beneficios premium");
+        PlanMembresia plan2 =
+                new PlanMembresia(providerId, "Pack anual", 365, 25, new BigDecimal("600000.00"), "Beneficios premium");
         when(planRepository.findByProviderIdOrderByNombreAsc(providerId)).thenReturn(List.of(plan, plan2));
         when(planRepository.findAllById(any())).thenReturn(List.of(plan, plan2));
 
-        Membresia vendida = new Membresia(plan.getId(), cliente.getId(), LocalDate.now(), LocalDate.now().plusDays(30));
+        Membresia vendida = new Membresia(
+                plan.getId(), cliente.getId(), LocalDate.now(), LocalDate.now().plusDays(30));
         when(membresiaRepository.findAllByPlanIdInOrderByFechaInicioDesc(any())).thenReturn(List.of(vendida));
 
         List<MembresiaGestionResponse> result = service.gestion(proveedor);

@@ -45,6 +45,14 @@ public class JwtService {
         return "mfa".equals(parse(token).get("type", String.class));
     }
 
+    public String generatePasswordResetToken(String email, UUID userId) {
+        return generate(email, userId, "USER", "pwd_reset", 900000);
+    }
+
+    public boolean isPasswordResetToken(String token) {
+        return "pwd_reset".equals(parse(token).get("type", String.class));
+    }
+
     private String generate(String email, UUID userId, String role, String type, long expirationMs) {
         Date now = new Date();
         var builder = Jwts.builder()

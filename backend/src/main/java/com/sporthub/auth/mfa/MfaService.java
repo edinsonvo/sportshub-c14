@@ -52,8 +52,10 @@ public class MfaService {
     }
 
     public AuthResponse beginChallenge(UserAccount user) {
-        String challenge = jwtService.generateMfaChallenge(user.getEmail(), user.getId(), user.getRole().name());
-        return AuthResponse.pending(user.getId(), user.getEmail(), user.getRole().name(), AVAILABLE_METHODS, challenge);
+        String challenge = jwtService.generateMfaChallenge(
+                user.getEmail(), user.getId(), user.getRole().name());
+        return AuthResponse.pending(
+                user.getId(), user.getEmail(), user.getRole().name(), AVAILABLE_METHODS, challenge);
     }
 
     public MfaSetupResponse setup(UserAccount user) {
@@ -104,19 +106,24 @@ public class MfaService {
         UserAccount user = userFromChallenge(challengeToken);
         boolean valid;
         if (method == MfaMethod.TOTP) {
-            valid = user.isMfaEnabled() && user.getMfaMethod() == MfaMethod.TOTP && Totp.verify(user.getMfaSecret(), code);
+            valid = user.isMfaEnabled()
+                    && user.getMfaMethod() == MfaMethod.TOTP
+                    && Totp.verify(user.getMfaSecret(), code);
         } else if (method == MfaMethod.EMAIL) {
             valid = user.isMfaEnabled() && user.getMfaMethod() == MfaMethod.EMAIL && otpService.verify(user, code);
         } else {
             valid = false;
         }
         if (!valid) {
-            throw new BusinessException("CODIGO_INVALIDO", "El código de verificación no es válido", HttpStatus.BAD_REQUEST);
+            throw new BusinessException(
+                    "CODIGO_INVALIDO", "El código de verificación no es válido", HttpStatus.BAD_REQUEST);
         }
         auditLogger.record("UserAccount", user.getId().toString(), "MFA_VERIFICADO", user.getEmail(), method.name());
         return AuthResponse.of(
-                jwtService.generateAccessToken(user.getEmail(), user.getId(), user.getRole().name()),
-                jwtService.generateRefreshToken(user.getEmail(), user.getId(), user.getRole().name()),
+                jwtService.generateAccessToken(
+                        user.getEmail(), user.getId(), user.getRole().name()),
+                jwtService.generateRefreshToken(
+                        user.getEmail(), user.getId(), user.getRole().name()),
                 user.getId(),
                 user.getEmail(),
                 user.getRole().name());
@@ -124,8 +131,7 @@ public class MfaService {
 
     public void disable(UserAccount user, String password) {
         if (password == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new BusinessException(
-                    "PASSWORD_INCORRECTA", "La contraseña no es correcta", HttpStatus.BAD_REQUEST);
+            throw new BusinessException("PASSWORD_INCORRECTA", "La contraseña no es correcta", HttpStatus.BAD_REQUEST);
         }
         otpService.clear(user.getId().toString());
         user.disableMfa();
@@ -149,7 +155,7 @@ public class MfaService {
         return userRepository
                 .findByEmail(claims.getSubject())
                 .filter(UserAccount::isActive)
-                .orElseThrow(() -> new BusinessException(
-                        "CHALLENGE_INVALIDO", "Sesión MFA inválida", HttpStatus.UNAUTHORIZED));
+                .orElseThrow(() ->
+                        new BusinessException("CHALLENGE_INVALIDO", "Sesión MFA inválida", HttpStatus.UNAUTHORIZED));
     }
 }

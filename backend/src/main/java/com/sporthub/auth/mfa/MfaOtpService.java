@@ -25,8 +25,7 @@ public class MfaOtpService {
 
     public String generate(UserAccount user) {
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
-        codes.put(user.getId().toString(), new OtpEntry(
-                sha256(code), System.currentTimeMillis() + ttlSeconds * 1000L));
+        codes.put(user.getId().toString(), new OtpEntry(sha256(code), System.currentTimeMillis() + ttlSeconds * 1000L));
         return code;
     }
 

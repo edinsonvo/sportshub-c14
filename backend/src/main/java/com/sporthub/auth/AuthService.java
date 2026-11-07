@@ -3,10 +3,13 @@ package com.sporthub.auth;
 import com.sporthub.auth.mfa.MfaService;
 import com.sporthub.infra.AuditLogger;
 import com.sporthub.infra.BusinessException;
+import com.sporthub.reservas.Provider;
+import com.sporthub.reservas.ProviderRepository;
 import com.sporthub.security.JwtService;
 import com.sporthub.user.Role;
 import com.sporthub.user.UserAccount;
 import com.sporthub.user.UserRepository;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final ProviderRepository providerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
@@ -24,12 +28,14 @@ public class AuthService {
 
     public AuthService(
             UserRepository userRepository,
+            ProviderRepository providerRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             LoginAttemptService loginAttemptService,
             MfaService mfaService,
             AuditLogger auditLogger) {
         this.userRepository = userRepository;
+        this.providerRepository = providerRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
@@ -46,6 +52,12 @@ public class AuthService {
         UserAccount user = new UserAccount(
                 request.email(), passwordEncoder.encode(request.password()), request.fullName(), request.phone(), role);
         userRepository.save(user);
+
+        if (role == Role.PROVIDER) {
+            Provider provider = new Provider(user.getId(), user.getFullName(), "PENDIENTE");
+            providerRepository.save(provider);
+        }
+
         return issueTokens(user);
     }
 
@@ -82,6 +94,42 @@ public class AuthService {
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         auditLogger.record("UserAccount", user.getId().toString(), "CAMBIO_PASSWORD", email, null);
+    }
+
+    @Transactional
+    public Map<String, String> forgotPassword(String email) {
+        UserAccount user = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new BusinessException(
+                        "USUARIO_NO_ENCONTRADO",
+                        "No existe una cuenta con ese correo electrónico",
+                        HttpStatus.NOT_FOUND));
+
+        String resetToken = jwtService.generatePasswordResetToken(user.getEmail(), user.getId());
+        auditLogger.record("UserAccount", user.getId().toString(), "SOLICITUD_RESET_PASSWORD", email, null);
+
+        return Map.of("message", "Se ha generado el token de recuperación de contraseña", "resetToken", resetToken);
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        if (!jwtService.isPasswordResetToken(token)) {
+            throw new BusinessException(
+                    "TOKEN_INVALIDO",
+                    "El token proporcionado no es válido para restablecer contraseña",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        String email = jwtService.extractEmail(token);
+        UserAccount user = userRepository
+                .findByEmail(email)
+                .orElseThrow(
+                        () -> new BusinessException("NO_ENCONTRADO", "Usuario no encontrado", HttpStatus.NOT_FOUND));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        auditLogger.record("UserAccount", user.getId().toString(), "RESET_PASSWORD_EXITOSO", email, null);
     }
 
     private AuthResponse issueTokens(UserAccount user) {

@@ -43,7 +43,12 @@ class ImplementoServiceTest {
         AuditLogger auditLogger = mock(AuditLogger.class);
         metrics = mock(SportHubMetrics.class);
         service = new ImplementoService(
-                implementoRepository, reservaRepository, providerRepository, mock(UserRepository.class), auditLogger, metrics);
+                implementoRepository,
+                reservaRepository,
+                providerRepository,
+                mock(UserRepository.class),
+                auditLogger,
+                metrics);
 
         implementoId = UUID.randomUUID();
         cliente = mock(UserAccount.class);
@@ -134,7 +139,8 @@ class ImplementoServiceTest {
         when(implementoRepository.findByProviderIdOrderByNombreAsc(providerId)).thenReturn(List.of(implemento(10)));
         when(implementoRepository.findAllById(any())).thenReturn(List.of(implemento(10)));
 
-        ReservaImplemento reserva = new ReservaImplemento(implementoId, cliente.getId(), LocalDate.now().plusDays(1), 2);
+        ReservaImplemento reserva = new ReservaImplemento(
+                implementoId, cliente.getId(), LocalDate.now().plusDays(1), 2);
         when(reservaRepository.findAllByImplementoIdInOrderByFechaDesc(any())).thenReturn(List.of(reserva));
 
         List<ReservaImplementoGestionResponse> result = service.gestionReservas(proveedor);

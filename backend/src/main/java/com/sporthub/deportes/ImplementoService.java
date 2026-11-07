@@ -142,7 +142,9 @@ public class ImplementoService {
     public List<ReservaImplementoGestionResponse> gestionReservas(UserAccount caller) {
         List<UUID> implementoIds;
         if (caller.getRole() == Role.ADMIN) {
-            implementoIds = implementoRepository.findAll().stream().map(Implemento::getId).toList();
+            implementoIds = implementoRepository.findAll().stream()
+                    .map(Implemento::getId)
+                    .toList();
         } else {
             UUID providerId = providerRepository
                     .findByUserId(caller.getId())
@@ -159,10 +161,14 @@ public class ImplementoService {
         List<ReservaImplemento> reservas = reservaRepository.findAllByImplementoIdInOrderByFechaDesc(implementoIds);
         Map<UUID, String> nombresImplemento = implementoRepository.findAllById(implementoIds).stream()
                 .collect(Collectors.toMap(Implemento::getId, Implemento::getNombre));
-        Map<UUID, String> nombresCliente = userRepository
-                .findAllById(reservas.stream().map(ReservaImplemento::getClientId).distinct().toList())
-                .stream()
-                .collect(Collectors.toMap(UserAccount::getId, UserAccount::getFullName));
+        Map<UUID, String> nombresCliente =
+                userRepository
+                        .findAllById(reservas.stream()
+                                .map(ReservaImplemento::getClientId)
+                                .distinct()
+                                .toList())
+                        .stream()
+                        .collect(Collectors.toMap(UserAccount::getId, UserAccount::getFullName));
         return reservas.stream()
                 .map(r -> new ReservaImplementoGestionResponse(
                         r.getId(),

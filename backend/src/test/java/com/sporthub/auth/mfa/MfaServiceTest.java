@@ -3,7 +3,6 @@ package com.sporthub.auth.mfa;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,15 +35,13 @@ class MfaServiceTest {
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService(
-                "0123456789abcdef0123456789abcdef0123456789", 900_000L, 2_592_000_000L, 300_000L);
+        jwtService = new JwtService("0123456789abcdef0123456789abcdef0123456789", 900_000L, 2_592_000_000L, 300_000L);
         userRepository = mock(UserRepository.class);
         otpService = mock(MfaOtpService.class);
         codeSender = mock(MfaCodeSender.class);
         passwordEncoder = mock(PasswordEncoder.class);
         auditLogger = mock(AuditLogger.class);
-        service = new MfaService(
-                userRepository, jwtService, otpService, codeSender, passwordEncoder, auditLogger);
+        service = new MfaService(userRepository, jwtService, otpService, codeSender, passwordEncoder, auditLogger);
         ReflectionTestUtils.setField(service, "otpTtlSeconds", 300L);
         ReflectionTestUtils.setField(service, "totpIssuer", "SportHub");
     }

@@ -38,9 +38,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Siembra datos demo (HU-99) de forma idempotente al arrancar. La contraseña se codifica con el
- * PasswordEncoder real del backend para que el login de los usuarios demo siempre funcione.
- * Control: app.seed.demo-data=false para desactivar en producción.
+ * Siembra datos demo (HU-99) de forma idempotente al arrancar.
+ * Enlaza entidades utilizando los IDs generados por persistencia para garantizar integridad referencial.
  */
 @Component
 @ConditionalOnProperty(prefix = "app.seed", name = "demo-data", havingValue = "true", matchIfMissing = true)
@@ -49,19 +48,6 @@ public class DemoDataInitializer implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DemoDataInitializer.class);
 
     private static final String DEMO_PASSWORD = "password";
-
-    private static final UUID PROVIDER_ID = UUID.fromString("20000000-0000-0000-0000-000000000001");
-    private static final UUID STAFF_ID = UUID.fromString("30000000-0000-0000-0000-000000000001");
-    private static final UUID SERVICE_ID = UUID.fromString("8f0a1e2d-3b4c-5d6e-7f80-9a1b2c3d4e5f");
-
-    private static final UUID DEPORTES_PROVIDER_ID = UUID.fromString("50000000-0000-0000-0000-000000000001");
-    private static final UUID DEPORTES_STAFF_ID = UUID.fromString("60000000-0000-0000-0000-000000000001");
-    private static final UUID INSTALACION_A_ID = UUID.fromString("50000000-0000-0000-0000-000000000002");
-    private static final UUID INSTALACION_B_ID = UUID.fromString("50000000-0000-0000-0000-000000000003");
-    private static final UUID CLASE_ID = UUID.fromString("50000000-0000-0000-0000-000000000004");
-    private static final UUID PLAN_ID = UUID.fromString("50000000-0000-0000-0000-000000000005");
-    private static final UUID IMPLEMENTO_ID = UUID.fromString("50000000-0000-0000-0000-000000000006");
-    private static final UUID TORNEO_ID = UUID.fromString("50000000-0000-0000-0000-000000000007");
 
     private final UserRepository userRepository;
     private final ProviderRepository providerRepository;
@@ -119,54 +105,60 @@ public class DemoDataInitializer implements CommandLineRunner {
         upsertUser("cliente@sporthub.co", "Cliente Demo", "3000000004", Role.CLIENT, hash);
         upsertUser("admin@sporthub.co", "Administrador Plataforma", "3000000001", Role.ADMIN, hash);
 
-        Provider provider = providerRepository.findById(PROVIDER_ID).orElseGet(() -> {
-            Provider p = new Provider(providerUser.getId(), "Salón Belleza Elite", "CC-901234567");
-            p.setId(PROVIDER_ID);
-            return p;
-        });
+        Provider provider = providerRepository
+                .findByUserId(providerUser.getId())
+                .orElseGet(() -> {
+                    Provider p = new Provider(providerUser.getId(), "Salón Belleza Elite", "CC-901234567");
+                    return providerRepository.save(p);
+                });
         if (!provider.isIdentityVerified()) {
             provider.verifyIdentity();
         }
         provider.setActive(true);
-        providerRepository.save(provider);
+        provider = providerRepository.save(provider);
+        final UUID provId = provider.getId();
 
-        ProviderStaff staff = staffRepository.findById(STAFF_ID).orElseGet(() -> {
-            ProviderStaff s = new ProviderStaff(provider.getId(), staffUser.getId(), "Estilista");
-            s.setId(STAFF_ID);
-            return s;
+        ProviderStaff staff = staffRepository.findByUserId(staffUser.getId()).orElseGet(() -> {
+            ProviderStaff s = new ProviderStaff(provId, staffUser.getId(), "Estilista");
+            return staffRepository.save(s);
         });
+        staff.setProviderId(provId);
         staff.setActive(true);
-        staffRepository.save(staff);
+        staff = staffRepository.save(staff);
+        final UUID stfId = staff.getId();
 
-        ProviderService service = serviceRepository.findById(SERVICE_ID).orElseGet(() -> {
-            ProviderService s = new ProviderService(
-                    provider.getId(),
-                    "Corte de cabello",
-                    "Corte clásico con lavado y secado",
-                    60,
-                    new BigDecimal("45000.00"),
-                    true);
-            s.setId(SERVICE_ID);
-            return s;
-        });
+        ProviderService service = serviceRepository.findByProviderIdOrderByNameAsc(provId).stream()
+                .filter(s -> s.getName().equals("Corte de cabello"))
+                .findFirst()
+                .orElseGet(() -> {
+                    ProviderService s = new ProviderService(
+                            provId,
+                            "Corte de cabello",
+                            "Corte clásico con lavado y secado",
+                            60,
+                            new BigDecimal("45000.00"),
+                            true);
+                    return serviceRepository.save(s);
+                });
         service.setActive(true);
-        serviceRepository.save(service);
+        service = serviceRepository.save(service);
+        final UUID svcId = service.getId();
 
+        List<ServiceSchedule> existingSchedules =
+                scheduleRepository.findByProviderIdOrderByDayOfWeekAscStartTimeAsc(provId);
         List<DayOfWeek> days =
                 List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY);
         LocalTime start = LocalTime.of(9, 0);
         LocalTime end = LocalTime.of(17, 0);
-        for (int i = 0; i < days.size(); i++) {
-            UUID scheduleId = UUID.fromString("40000000-0000-0000-0000-00000000000" + (i + 1));
-            DayOfWeek day = days.get(i);
-            ServiceSchedule schedule = scheduleRepository.findById(scheduleId).orElseGet(() -> {
-                ServiceSchedule s =
-                        new ServiceSchedule(service.getId(), provider.getId(), staff.getId(), day, start, end);
-                s.setId(scheduleId);
-                return s;
-            });
-            schedule.setBlocked(false);
-            scheduleRepository.save(schedule);
+        for (DayOfWeek day : days) {
+            boolean exists = existingSchedules.stream()
+                    .anyMatch(s ->
+                            s.getDayOfWeek() == day && s.getProviderServiceId().equals(svcId));
+            if (!exists) {
+                ServiceSchedule s = new ServiceSchedule(svcId, provId, stfId, day, start, end);
+                s.setBlocked(false);
+                scheduleRepository.save(s);
+            }
         }
     }
 
@@ -176,122 +168,120 @@ public class DemoDataInitializer implements CommandLineRunner {
         UserAccount entrenadorUser =
                 upsertUser("entrenador@sporthub.co", "Entrenador Demo", "3000000006", Role.STAFF, hash);
 
-        Provider provider = providerRepository.findById(DEPORTES_PROVIDER_ID).orElseGet(() -> {
-            Provider p = new Provider(deportesUser.getId(), "Centro Deportivo SportHub", "CC-987654321");
-            p.setId(DEPORTES_PROVIDER_ID);
-            return p;
-        });
+        Provider provider = providerRepository
+                .findByUserId(deportesUser.getId())
+                .orElseGet(() -> {
+                    Provider p = new Provider(deportesUser.getId(), "Centro Deportivo SportHub", "CC-987654321");
+                    return providerRepository.save(p);
+                });
         if (!provider.isIdentityVerified()) {
             provider.verifyIdentity();
         }
         provider.setActive(true);
-        providerRepository.save(provider);
+        provider = providerRepository.save(provider);
+        final UUID depProvId = provider.getId();
 
-        ProviderStaff staff = staffRepository.findById(DEPORTES_STAFF_ID).orElseGet(() -> {
-            ProviderStaff s = new ProviderStaff(provider.getId(), entrenadorUser.getId(), "Entrenador");
-            s.setId(DEPORTES_STAFF_ID);
-            return s;
-        });
+        ProviderStaff staff = staffRepository
+                .findByUserId(entrenadorUser.getId())
+                .orElseGet(() -> {
+                    ProviderStaff s = new ProviderStaff(depProvId, entrenadorUser.getId(), "Entrenador");
+                    return staffRepository.save(s);
+                });
+        staff.setProviderId(depProvId);
         staff.setActive(true);
-        staffRepository.save(staff);
+        staff = staffRepository.save(staff);
+        final UUID depStaffId = staff.getId();
 
-        seedInstalacion(
-                INSTALACION_A_ID,
-                provider.getId(),
-                TipoInstalacion.CANCHA,
-                "Cancha sintética A",
-                2,
-                "80000.00",
-                "06:00",
-                "22:00");
-        seedInstalacion(
-                INSTALACION_B_ID,
-                provider.getId(),
-                TipoInstalacion.SALA,
-                "Sala de spinning",
-                6,
-                "15000.00",
-                "06:00",
-                "21:00");
+        Instalacion instA = instalacionRepository.findByProviderIdOrderByNombreAsc(depProvId).stream()
+                .filter(i -> i.getNombre().equals("Cancha sintética A"))
+                .findFirst()
+                .orElseGet(() -> {
+                    Instalacion i = new Instalacion(
+                            depProvId,
+                            TipoInstalacion.CANCHA,
+                            "Cancha sintética A",
+                            2,
+                            new BigDecimal("80000.00"),
+                            LocalTime.parse("06:00"),
+                            LocalTime.parse("22:00"));
+                    i.setActiva(true);
+                    return instalacionRepository.save(i);
+                });
 
-        ClaseGrupal clase = claseRepository.findById(CLASE_ID).orElseGet(() -> {
-            ClaseGrupal c = new ClaseGrupal(
-                    provider.getId(),
-                    INSTALACION_B_ID,
-                    staff.getId(),
-                    "Entrenamiento funcional",
-                    "Intermedio",
-                    LocalDate.now().plusDays(1),
-                    LocalTime.of(18, 0),
-                    60,
-                    12);
-            c.setId(CLASE_ID);
-            return c;
-        });
-        clase.setActiva(true);
-        claseRepository.save(clase);
+        Instalacion instB = instalacionRepository.findByProviderIdOrderByNombreAsc(depProvId).stream()
+                .filter(i -> i.getNombre().equals("Sala de spinning"))
+                .findFirst()
+                .orElseGet(() -> {
+                    Instalacion i = new Instalacion(
+                            depProvId,
+                            TipoInstalacion.SALA,
+                            "Sala de spinning",
+                            6,
+                            new BigDecimal("15000.00"),
+                            LocalTime.parse("06:00"),
+                            LocalTime.parse("21:00"));
+                    i.setActiva(true);
+                    return instalacionRepository.save(i);
+                });
+        final UUID instBId = instB.getId();
 
-        PlanMembresia plan = planRepository.findById(PLAN_ID).orElseGet(() -> {
-            PlanMembresia p = new PlanMembresia(
-                    provider.getId(),
-                    "Mensual total",
-                    30,
-                    15,
-                    new BigDecimal("120000.00"),
-                    "Acceso a todas las instalaciones con 15% de descuento en tarifas");
-            p.setId(PLAN_ID);
-            return p;
-        });
-        plan.setActivo(true);
-        planRepository.save(plan);
+        claseRepository.findByProviderIdOrderByFechaDesc(depProvId).stream()
+                .filter(c -> c.getNombre().equals("Entrenamiento funcional"))
+                .findFirst()
+                .orElseGet(() -> {
+                    ClaseGrupal c = new ClaseGrupal(
+                            depProvId,
+                            instBId,
+                            depStaffId,
+                            "Entrenamiento funcional",
+                            "Intermedio",
+                            LocalDate.now().plusDays(1),
+                            LocalTime.of(18, 0),
+                            60,
+                            12);
+                    c.setActiva(true);
+                    return claseRepository.save(c);
+                });
 
-        Implemento implemento = implementoRepository.findById(IMPLEMENTO_ID).orElseGet(() -> {
-            Implemento i =
-                    new Implemento(provider.getId(), "Balón de fútbol", "Balones", 10, new BigDecimal("10000.00"));
-            i.setId(IMPLEMENTO_ID);
-            return i;
-        });
-        implemento.setActivo(true);
-        implementoRepository.save(implemento);
+        planRepository.findByProviderIdOrderByNombreAsc(depProvId).stream()
+                .filter(p -> p.getNombre().equals("Mensual total"))
+                .findFirst()
+                .orElseGet(() -> {
+                    PlanMembresia p = new PlanMembresia(
+                            depProvId,
+                            "Mensual total",
+                            30,
+                            15,
+                            new BigDecimal("120000.00"),
+                            "Acceso a todas las instalaciones con 15% de descuento en tarifas");
+                    p.setActivo(true);
+                    return planRepository.save(p);
+                });
 
-        Torneo torneo = torneoRepository.findById(TORNEO_ID).orElseGet(() -> {
-            Torneo t = new Torneo(
-                    provider.getId(),
-                    "Copa SportHub F5",
-                    "Fútbol 5",
-                    FormatoTorneo.ELIMINATORIA_DIRECTA,
-                    LocalDate.now().plusDays(7),
-                    LocalDate.now().plusDays(21),
-                    8);
-            t.setId(TORNEO_ID);
-            return t;
-        });
-        torneoRepository.save(torneo);
-    }
+        implementoRepository.findByProviderIdOrderByNombreAsc(depProvId).stream()
+                .filter(imp -> imp.getNombre().equals("Balón de fútbol"))
+                .findFirst()
+                .orElseGet(() -> {
+                    Implemento imp =
+                            new Implemento(depProvId, "Balón de fútbol", "Balones", 10, new BigDecimal("10000.00"));
+                    imp.setActivo(true);
+                    return implementoRepository.save(imp);
+                });
 
-    private void seedInstalacion(
-            UUID instalacionId,
-            UUID providerId,
-            TipoInstalacion tipo,
-            String nombre,
-            int capacidad,
-            String tarifa,
-            String apertura,
-            String cierre) {
-        Instalacion instalacion = instalacionRepository.findById(instalacionId).orElseGet(() -> {
-            Instalacion i = new Instalacion(
-                    providerId,
-                    tipo,
-                    nombre,
-                    capacidad,
-                    new BigDecimal(tarifa),
-                    LocalTime.parse(apertura),
-                    LocalTime.parse(cierre));
-            i.setId(instalacionId);
-            return i;
-        });
-        instalacion.setActiva(true);
-        instalacionRepository.save(instalacion);
+        torneoRepository.findAllByOrderByFechaInicioDesc().stream()
+                .filter(t -> t.getNombre().equals("Copa SportHub F5"))
+                .findFirst()
+                .orElseGet(() -> {
+                    Torneo t = new Torneo(
+                            depProvId,
+                            "Copa SportHub F5",
+                            "Fútbol 5",
+                            FormatoTorneo.ELIMINATORIA_DIRECTA,
+                            LocalDate.now().plusDays(7),
+                            LocalDate.now().plusDays(21),
+                            8);
+                    return torneoRepository.save(t);
+                });
     }
 
     private UserAccount upsertUser(String email, String fullName, String phone, Role role, String hash) {

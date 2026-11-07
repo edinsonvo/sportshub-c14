@@ -15,6 +15,7 @@ export default function RegistroPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"CLIENT" | "PROVIDER">("CLIENT");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ export default function RegistroPage() {
     setError(null);
     if (!isPasswordValid(password)) {
       setPasswordError(
-        "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número",
+        "La contraseña debe tener mínimo 8 caracteres, al menos una mayúscula, una minúscula y un número",
       );
       return;
     }
@@ -32,10 +33,14 @@ export default function RegistroPage() {
     try {
       const session = await api<Session>("/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, password, fullName, phone, role: "CLIENT" }),
+        body: JSON.stringify({ email, password, fullName, phone, role }),
       });
       saveSession(session);
-      router.push("/dashboard");
+      if (session.role === "PROVIDER") {
+        router.push("/proveedor");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Error al registrar la cuenta");
     } finally {
@@ -44,21 +49,53 @@ export default function RegistroPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <main className="flex min-h-[85vh] items-center justify-center px-4 py-8">
+      <Card className="w-full max-w-md shadow-md border-gray-200">
         <CardHeader>
-          <h1 className="text-xl font-semibold">Crear cuenta</h1>
-          <p className="text-sm text-gray-500">Regístrate como cliente de SportHub</p>
+          <h1 className="text-xl font-bold text-gray-900">Crear cuenta en SportHub</h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Únete a la plataforma para reservar o prestar servicios profesionales (HU-01, HU-06).
+          </p>
         </CardHeader>
         <CardContent>
           {error ? (
-            <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">
+            <p className="mb-4 rounded-md bg-red-50 p-3 text-xs font-medium text-red-700 border border-red-200" role="alert">
               {error}
             </p>
           ) : null}
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+            {/* Account Type Selector */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-gray-700">Tipo de Cuenta</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRole("CLIENT")}
+                  className={`rounded-lg py-2 px-3 text-xs font-semibold transition-all ${
+                    role === "CLIENT"
+                      ? "bg-primary-700 text-white shadow-xs"
+                      : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  👤 Cliente (Reservar)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole("PROVIDER")}
+                  className={`rounded-lg py-2 px-3 text-xs font-semibold transition-all ${
+                    role === "PROVIDER"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  🏢 Proveedor (Negocio)
+                </button>
+              </div>
+            </div>
+
             <Input
-              label="Nombre completo"
+              label="Nombre completo o Razón Social"
               name="fullName"
               autoComplete="name"
               required
@@ -75,7 +112,7 @@ export default function RegistroPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
             <Input
-              label="Teléfono"
+              label="Teléfono de contacto"
               name="phone"
               type="tel"
               autoComplete="tel"
@@ -95,17 +132,17 @@ export default function RegistroPage() {
                 setPasswordError(null);
               }}
             />
-            <p className="text-xs text-gray-500">
-              Al registrarte aceptas los Términos y Condiciones y la Política de Privacidad
-              (Ley 1581 de 2012 — Habeas Data).
+            <p className="text-[11px] text-gray-500 leading-normal">
+              Al registrarte aceptas los Términos y Condiciones y autorizas el tratamiento de tus datos personales conforme a la Ley 1581 de 2012 (Habeas Data Colombia).
             </p>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creando cuenta…" : "Crear cuenta"}
+              {loading ? "Creando cuenta…" : `Registrarme como ${role === "PROVIDER" ? "Proveedor" : "Cliente"}`}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-gray-600">
+
+          <p className="mt-4 text-center text-xs text-gray-600">
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" className="font-medium text-primary-700 hover:underline">
+            <Link href="/login" className="font-semibold text-primary-700 hover:underline">
               Inicia sesión
             </Link>
           </p>

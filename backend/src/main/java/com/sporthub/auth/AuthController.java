@@ -48,7 +48,9 @@ public class AuthController {
                 user.getEmail(),
                 user.getFullName(),
                 user.isMfaEnabled(),
-                user.isMfaEnabled() && user.getMfaMethod() != null ? user.getMfaMethod().name() : null,
+                user.isMfaEnabled() && user.getMfaMethod() != null
+                        ? user.getMfaMethod().name()
+                        : null,
                 user.getCreatedAt()));
     }
 
@@ -59,5 +61,18 @@ public class AuthController {
         UserAccount user = SecurityUtils.currentUser();
         authService.changePassword(user.getEmail(), request.currentPassword(), request.newPassword());
         return ResponseEntity.ok(Map.of("message", "Contraseña actualizada"));
+    }
+
+    @Operation(summary = "Solicitar recuperación de contraseña (HU-15)")
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(authService.forgotPassword(request.email()));
+    }
+
+    @Operation(summary = "Restablecer contraseña con token (HU-15)")
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok(Map.of("message", "Contraseña restablecida con éxito"));
     }
 }

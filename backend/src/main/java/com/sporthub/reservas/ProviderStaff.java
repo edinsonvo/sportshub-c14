@@ -47,12 +47,24 @@ public class ProviderStaff {
         return providerId;
     }
 
+    public void setProviderId(UUID providerId) {
+        this.providerId = providerId;
+    }
+
     public UUID getUserId() {
         return userId;
     }
 
+    public void setUserId(UUID userId) {
+        this.userId = userId;
+    }
+
     public String getPosition() {
         return position;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
     }
 
     public boolean isActive() {

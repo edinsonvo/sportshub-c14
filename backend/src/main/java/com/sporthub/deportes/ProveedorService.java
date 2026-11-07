@@ -44,9 +44,7 @@ public class ProveedorService {
                     .findByUserId(caller.getId())
                     .map(ProviderStaff::getProviderId)
                     .orElseThrow(() -> new BusinessException(
-                            "PROVEEDOR_NO_ENCONTRADO",
-                            "No está asignado a un proveedor",
-                            HttpStatus.NOT_FOUND));
+                            "PROVEEDOR_NO_ENCONTRADO", "No está asignado a un proveedor", HttpStatus.NOT_FOUND));
         } else {
             throw new BusinessException(
                     "ROL_INVALIDO", "Este rol no posee un perfil de proveedor", HttpStatus.BAD_REQUEST);
@@ -58,7 +56,10 @@ public class ProveedorService {
         List<StaffOption> staff = staffRepository.findByProviderId(providerId).stream()
                 .map(s -> new StaffOption(
                         s.getId(),
-                        userRepository.findById(s.getUserId()).map(UserAccount::getFullName).orElse(""),
+                        userRepository
+                                .findById(s.getUserId())
+                                .map(UserAccount::getFullName)
+                                .orElse(""),
                         s.getPosition()))
                 .toList();
         return new ProveedorResponse(
