@@ -71,7 +71,7 @@ class TorneoServiceTest {
         when(proveedor.getRole()).thenReturn(Role.PROVIDER);
         Provider provider = mock(Provider.class);
         when(provider.getId()).thenReturn(providerId);
-        when(providerRepository.findByUserId(userId)).thenReturn(Optional.of(provider));
+        when(providerRepository.findFirstByUserId(userId)).thenReturn(Optional.of(provider));
     }
 
     private ParticipanteTorneo participante(UUID id, String equipo) {

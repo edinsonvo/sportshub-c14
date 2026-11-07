@@ -247,7 +247,7 @@ public class ServiceManagementService {
         }
         if (caller.getRole() == Role.PROVIDER) {
             return providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElseThrow(() -> new BusinessException(
                             "PROVEEDOR_NO_ENCONTRADO",
@@ -256,7 +256,7 @@ public class ServiceManagementService {
         }
         if (caller.getRole() == Role.STAFF) {
             return staffRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(ProviderStaff::getProviderId)
                     .orElseThrow(() -> new BusinessException(
                             "STAFF_NO_ASIGNADO", "No está asignado a ningún proveedor", HttpStatus.FORBIDDEN));
@@ -276,7 +276,7 @@ public class ServiceManagementService {
             return;
         }
         boolean isOwner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(providerId))
                 .orElse(false);
         if (!isOwner) {

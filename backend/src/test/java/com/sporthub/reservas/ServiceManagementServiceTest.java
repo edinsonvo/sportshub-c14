@@ -56,7 +56,7 @@ class ServiceManagementServiceTest {
         providerUser.setId(provUserId);
         provider = new Provider(provUserId, "Deportes Elite", "NIT-12345");
         provider.setId(provId);
-        when(providerRepository.findByUserId(provUserId)).thenReturn(Optional.of(provider));
+        when(providerRepository.findFirstByUserId(provUserId)).thenReturn(Optional.of(provider));
     }
 
     @Test

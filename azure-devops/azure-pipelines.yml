@@ -333,29 +333,29 @@ stages:
                 - bash: |
                     set -euo pipefail
                     url="$(renderBackendUrl)/api/v1/health"
-                    for intento in $(seq 1 30); do
+                    for intento in $(seq 1 60); do
                       if curl -fsS --max-time 20 "$url"; then
                         echo
                         echo "Backend saludable tras $intento intento(s)."
                         exit 0
                       fi
-                      echo "Backend aún no responde ($intento/30)..."
+                      echo "Backend aún no responde ($intento/60)..."
                       sleep 10
                     done
                     echo "##vso[task.logissue type=error]Backend no respondió en $url"
                     exit 1
-                  displayName: 'Esperar health del backend (cold start incluido)'
+                  displayName: 'Esperar health del backend (cold start y build incluidos)'
 
                 - bash: |
                     set -euo pipefail
                     url="$(renderFrontendUrl)"
-                    for intento in $(seq 1 12); do
+                    for intento in $(seq 1 30); do
                       code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)
                       if [ "$code" = "200" ]; then
                         echo "Frontend OK (HTTP $code)."
                         exit 0
                       fi
-                      echo "Frontend HTTP $code ($intento/12)..."
+                      echo "Frontend HTTP $code ($intento/30)..."
                       sleep 10
                     done
                     echo "##vso[task.logissue type=error]Frontend no respondió 200 en $url"

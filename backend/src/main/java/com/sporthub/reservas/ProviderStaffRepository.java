@@ -9,7 +9,7 @@ public interface ProviderStaffRepository extends JpaRepository<ProviderStaff, UU
 
     List<ProviderStaff> findByProviderId(UUID providerId);
 
-    Optional<ProviderStaff> findByUserId(UUID userId);
+    Optional<ProviderStaff> findFirstByUserId(UUID userId);
 
     boolean existsByProviderIdAndUserId(UUID providerId, UUID userId);
 }

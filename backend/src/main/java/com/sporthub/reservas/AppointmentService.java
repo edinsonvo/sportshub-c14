@@ -160,12 +160,12 @@ public class AppointmentService {
             result = appointmentRepository.findByClientIdOrderByDateDesc(caller.getId());
         } else if (caller.getRole() == Role.STAFF) {
             result = staffRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(s -> appointmentRepository.findByStaffIdOrderByDateDesc(s.getId()))
                     .orElse(List.of());
         } else if (caller.getRole() == Role.PROVIDER) {
             result = providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(p -> appointmentRepository.findByProviderIdOrderByDateDesc(p.getId()))
                     .orElse(List.of());
         } else {
@@ -209,11 +209,11 @@ public class AppointmentService {
             return;
         }
         boolean providerOwner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(appointment.getProviderId()))
                 .orElse(false);
         boolean staffOfProvider = staffRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(s -> s.getProviderId().equals(appointment.getProviderId()))
                 .orElse(false);
         if (!providerOwner && !staffOfProvider) {

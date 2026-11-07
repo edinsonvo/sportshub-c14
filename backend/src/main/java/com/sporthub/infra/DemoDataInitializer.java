@@ -106,7 +106,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         upsertUser("admin@sporthub.co", "Administrador Plataforma", "3000000001", Role.ADMIN, hash);
 
         Provider provider = providerRepository
-                .findByUserId(providerUser.getId())
+                .findFirstByUserId(providerUser.getId())
                 .orElseGet(() -> {
                     Provider p = new Provider(providerUser.getId(), "Salón Belleza Elite", "CC-901234567");
                     return providerRepository.save(p);
@@ -118,7 +118,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         provider = providerRepository.save(provider);
         final UUID provId = provider.getId();
 
-        ProviderStaff staff = staffRepository.findByUserId(staffUser.getId()).orElseGet(() -> {
+        ProviderStaff staff = staffRepository.findFirstByUserId(staffUser.getId()).orElseGet(() -> {
             ProviderStaff s = new ProviderStaff(provId, staffUser.getId(), "Estilista");
             return staffRepository.save(s);
         });
@@ -169,7 +169,7 @@ public class DemoDataInitializer implements CommandLineRunner {
                 upsertUser("entrenador@sporthub.co", "Entrenador Demo", "3000000006", Role.STAFF, hash);
 
         Provider provider = providerRepository
-                .findByUserId(deportesUser.getId())
+                .findFirstByUserId(deportesUser.getId())
                 .orElseGet(() -> {
                     Provider p = new Provider(deportesUser.getId(), "Centro Deportivo SportHub", "CC-987654321");
                     return providerRepository.save(p);
@@ -182,7 +182,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         final UUID depProvId = provider.getId();
 
         ProviderStaff staff = staffRepository
-                .findByUserId(entrenadorUser.getId())
+                .findFirstByUserId(entrenadorUser.getId())
                 .orElseGet(() -> {
                     ProviderStaff s = new ProviderStaff(depProvId, entrenadorUser.getId(), "Entrenador");
                     return staffRepository.save(s);

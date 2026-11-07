@@ -121,7 +121,7 @@ class MembresiaServiceTest {
         UserAccount proveedor = mock(UserAccount.class);
         when(proveedor.getId()).thenReturn(UUID.randomUUID());
         when(proveedor.getRole()).thenReturn(Role.PROVIDER);
-        when(providerRepository.findByUserId(any())).thenReturn(Optional.of(provider));
+        when(providerRepository.findFirstByUserId(any())).thenReturn(Optional.of(provider));
 
         PlanMembresia plan2 =
                 new PlanMembresia(providerId, "Pack anual", 365, 25, new BigDecimal("600000.00"), "Beneficios premium");

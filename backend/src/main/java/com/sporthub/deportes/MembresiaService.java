@@ -135,7 +135,7 @@ public class MembresiaService {
                     planRepository.findAll().stream().map(PlanMembresia::getId).toList();
         } else {
             UUID providerId = providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElseThrow(() -> new BusinessException(
                             "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
@@ -197,7 +197,7 @@ public class MembresiaService {
             throw new BusinessException("ROL_INVALIDO", "El administrador no posee planes", HttpStatus.BAD_REQUEST);
         }
         return providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(Provider::getId)
                 .orElseThrow(() -> new BusinessException(
                         "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
@@ -208,7 +208,7 @@ public class MembresiaService {
             return;
         }
         boolean owner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(providerId))
                 .orElse(false);
         if (!owner) {

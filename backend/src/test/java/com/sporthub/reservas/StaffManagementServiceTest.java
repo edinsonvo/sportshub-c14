@@ -54,7 +54,7 @@ class StaffManagementServiceTest {
         providerUser.setId(provUserId);
         provider = new Provider(provUserId, "Gym Pro", "NIT-999");
         provider.setId(provId);
-        when(providerRepository.findByUserId(provUserId)).thenReturn(Optional.of(provider));
+        when(providerRepository.findFirstByUserId(provUserId)).thenReturn(Optional.of(provider));
     }
 
     @Test

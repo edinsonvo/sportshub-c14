@@ -135,7 +135,7 @@ class ImplementoServiceTest {
         UserAccount proveedor = mock(UserAccount.class);
         when(proveedor.getId()).thenReturn(UUID.randomUUID());
         when(proveedor.getRole()).thenReturn(Role.PROVIDER);
-        when(providerRepository.findByUserId(any())).thenReturn(Optional.of(provider));
+        when(providerRepository.findFirstByUserId(any())).thenReturn(Optional.of(provider));
         when(implementoRepository.findByProviderIdOrderByNombreAsc(providerId)).thenReturn(List.of(implemento(10)));
         when(implementoRepository.findAllById(any())).thenReturn(List.of(implemento(10)));
 

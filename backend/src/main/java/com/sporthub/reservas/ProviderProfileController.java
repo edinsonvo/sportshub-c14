@@ -71,13 +71,13 @@ public class ProviderProfileController {
     private Provider resolveProvider(UserAccount user) {
         if (user.getRole() == Role.PROVIDER) {
             return providerRepository
-                    .findByUserId(user.getId())
+                    .findFirstByUserId(user.getId())
                     .orElseThrow(() -> new BusinessException(
                             "PROVEEDOR_NO_ENCONTRADO", "No tienes perfil de proveedor", HttpStatus.NOT_FOUND));
         }
         if (user.getRole() == Role.STAFF) {
             return staffRepository
-                    .findByUserId(user.getId())
+                    .findFirstByUserId(user.getId())
                     .flatMap(s -> providerRepository.findById(s.getProviderId()))
                     .orElseThrow(() -> new BusinessException(
                             "STAFF_NO_ASIGNADO", "No estás asignado a un proveedor", HttpStatus.FORBIDDEN));

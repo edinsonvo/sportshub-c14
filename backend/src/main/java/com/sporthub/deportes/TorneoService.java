@@ -241,7 +241,7 @@ public class TorneoService {
             throw new BusinessException("ROL_INVALIDO", "El administrador no posee torneos", HttpStatus.BAD_REQUEST);
         }
         return providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(Provider::getId)
                 .orElseThrow(() -> new BusinessException(
                         "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
@@ -252,7 +252,7 @@ public class TorneoService {
             return;
         }
         boolean owner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(providerId))
                 .orElse(false);
         if (!owner) {

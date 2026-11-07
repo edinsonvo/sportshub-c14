@@ -108,7 +108,7 @@ public class StaffManagementService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getStaffAppointments(UserAccount caller) {
         ProviderStaff staff = staffRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .orElseThrow(() -> new BusinessException(
                         "STAFF_NO_ASIGNADO",
                         "El usuario actual no tiene perfil de personal operativo",
@@ -122,7 +122,7 @@ public class StaffManagementService {
     private UUID resolveProviderId(UserAccount caller) {
         if (caller.getRole() == Role.PROVIDER) {
             return providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElseThrow(() -> new BusinessException(
                             "PROVEEDOR_NO_ENCONTRADO",
@@ -131,7 +131,7 @@ public class StaffManagementService {
         }
         if (caller.getRole() == Role.STAFF) {
             return staffRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(ProviderStaff::getProviderId)
                     .orElseThrow(() -> new BusinessException(
                             "STAFF_NO_ASIGNADO", "No estás asignado a ningún proveedor", HttpStatus.FORBIDDEN));

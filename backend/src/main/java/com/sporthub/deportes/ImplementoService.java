@@ -58,7 +58,7 @@ public class ImplementoService {
             result = implementoRepository.findAll();
         } else if (caller.getRole() == Role.PROVIDER || caller.getRole() == Role.STAFF) {
             UUID providerId = providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElse(null);
             result = providerId != null
@@ -147,7 +147,7 @@ public class ImplementoService {
                     .toList();
         } else {
             UUID providerId = providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElseThrow(() -> new BusinessException(
                             "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
@@ -214,7 +214,7 @@ public class ImplementoService {
                 .orElseThrow(
                         () -> new BusinessException("NO_ENCONTRADO", "Implemento no encontrado", HttpStatus.NOT_FOUND));
         boolean owner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(implemento.getProviderId()))
                 .orElse(false);
         if (!owner) {
@@ -228,7 +228,7 @@ public class ImplementoService {
                     "ROL_INVALIDO", "El administrador no posee implementos", HttpStatus.BAD_REQUEST);
         }
         return providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(Provider::getId)
                 .orElseThrow(() -> new BusinessException(
                         "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));

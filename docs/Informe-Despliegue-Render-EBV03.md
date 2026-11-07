@@ -76,6 +76,7 @@ Dado que Azure DevOps no es soportado por Render, se realizó la sincronización
    - `.gitignore` (merge entre ambos)
 4. **Commit a Azure**: `chore(deploy): configurar Render (URLs públicas, normalización API, gitignore)`, posteriormente `chore(deploy): usar rama develop en el blueprint de Render`. Ambos commits fueron empujados exitosamente a Azure `develop`.
 5. **Espejo a GitLab**: Se creó el proyecto `udea-fe2026-2/sporthub` en GitLab (privado). Inicialmente hubo **bloqueo por protección de rama `main`** (el token Project Access Token con rol Developer no podía hacer el commit inicial a rama protegida). Tras relajar la protección temporalmente, se logró empujar `develop` (y `main` → forzado a nuestro árbol; Render usa `develop`). El repo GitLab quedó con el commit `426992bf`.
+6. **Versión final 1.0.0 (Fase 3)**: se integró el trabajo local `59ddad7` con Azure `426992b` y el ajuste de GitLab `9ec68b2`. El commit de integración desplegado es `b8a9f10`; el pipeline de Azure espeja automáticamente `develop` a GitLab cuando existe `GITLAB_TOKEN`.
 
 ## 6. Configuración del Blueprint en Render
 
@@ -96,7 +97,7 @@ Dado que el CLI no soportaba creación del Blueprint (endpoint en early access/n
 3. **Crear backend** `POST /v1/services` tipo `web_service` con `runtime: docker`, `rootDir: backend`, `repo: https://gitlab.com/udea-fe2026-2/sporthub`, `branch: develop`, `healthCheckPath: /api/v1/health`, env vars con DB_* internos + JWT_SECRET + DEMO_DATA_SEED + JPA_DDL_AUTO + limits + `CORS_ALLOWED_ORIGINS=https://sporthub-c14-frontend.onrender.com`. Resultado: `srv-dbailou1egvs73as0t0g`, URL pública `https://sporthub-c14-backend.onrender.com`.
 4. **Crear frontend** `POST /v1/services` con `rootDir: frontend`, env vars `NEXT_PUBLIC_API_URL=https://sporthub-c14-backend.onrender.com`, `NEXT_PUBLIC_DEMO_SERVICE_ID` fijo. Resultado: `srv-dbailum1egvs73as1i3g`, URL pública `https://sporthub-c14-frontend.onrender.com`.
 
-Ambos servicios iniciaron `build_in_progress` sobre commit `426992bf`. Se monitorizaron los `deploys` vía API: frontend pasó a `live` primero (Next build rápido), backend a `live` tras build Maven más prolongado (~3-4 min). Frontend respondió `200` y backend respondió `200 /api/v1/health` (`{"service":"sporthub-backend","status":"UP"}`).
+Ambos servicios iniciaron `build_in_progress` sobre el commit de integración `b8a9f10` (versión 1.0.0, Fase 3). Se monitorizaron los `deploys` vía API: frontend pasó a `live` primero (Next build rápido), backend a `live` tras build Maven más prolongado (~3-4 min). Frontend respondió `200` y backend respondió `200 /api/v1/health` (`{"service":"sporthub-backend","status":"UP"}`).
 
 ## 8. Corrección Definitiva de Inicialización de Semilla de Datos (Fase 3 Final)
 
@@ -143,7 +144,7 @@ Se validaron endpoints con todos los roles (password: `password`):
 
 ### 10.3 Limitaciones
 - **Tier gratuito Render**: PostgreSQL free expira (~30 días), web services free entran en suspensión por inactividad (cold start prolongado tras inactividad), CPU/memoria limitados.
-- **No auto-sincronización automática desde Azure**: La sincronización Azure→GitLab es manual (se hizo una vez). Para mantener actualizado, habría que mantener el espejo.
+- **Sincronización Azure→GitLab**: el pipeline de Azure incluye un job de espejo (`git push` a GitLab `develop`) que se ejecuta cuando existe `GITLAB_TOKEN` en el grupo `sporthub-vars`. Si el token no está configurado, el job se omite y la sincronización debe hacerse manualmente.
 - **Fix definitivo en código (Resuelto en Fase 3)**: Se refactorizó `DemoDataInitializer.java` para encadenar las entidades persistidas (`provider.getId()`), garantizando que cualquier inicialización o reinicio de base de datos sea 100% automático y consistente.
 - **Rutas 500 para no mapeadas**: Pequeña molestia para pruebas (no afecta flujos funcionales).
 - **Branch `develop` para Render**: Por protección de `main` en GitLab, se usó `develop` como rama de despliegue.
@@ -151,7 +152,7 @@ Se validaron endpoints con todos los roles (password: `password`):
 ## 11. Soluciones aplicadas
 
 - **BluePrint corregido**: Reemplazo de `property: url` por `envVarKey: RENDER_EXTERNAL_URL`.
-- **Espejo Azure→GitLab**: Push bifurcado (Azure develop + GitLab develop/main) tras ajustar protecciones.
+- **Espejo Azure→GitLab**: push directo a Azure `develop` y GitLab `develop`; a partir de la Fase 3 el pipeline puede repetir el espejo automáticamente con `GITLAB_TOKEN`.
 - **Despliegue por API**: Orquestación directa de DB + backend + frontend con payloads conformes a OpenAPI.
 - **Normalización de API**: `api.ts` asegura sufijo `/api/v1`.
 - **Reparación de datos**: UPDATE SQL para realinear FKs al ID generado de proveedor.

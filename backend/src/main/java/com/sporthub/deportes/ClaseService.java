@@ -136,7 +136,7 @@ public class ClaseService {
         List<ClaseGrupal> clases;
         if (caller.getRole() == Role.PROVIDER || caller.getRole() == Role.STAFF) {
             UUID providerId = providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElse(null);
             clases = providerId != null ? claseRepository.findByProviderIdOrderByFechaDesc(providerId) : List.of();
@@ -206,11 +206,11 @@ public class ClaseService {
             return;
         }
         boolean owner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(clase.getProviderId()))
                 .orElse(false);
         boolean staff = staffRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(s -> s.getProviderId().equals(clase.getProviderId()))
                 .orElse(false);
         if (!owner && !staff) {
@@ -223,7 +223,7 @@ public class ClaseService {
             throw new BusinessException("ROL_INVALIDO", "El administrador no posee clases", HttpStatus.BAD_REQUEST);
         }
         return providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(Provider::getId)
                 .orElseThrow(() -> new BusinessException(
                         "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
@@ -234,7 +234,7 @@ public class ClaseService {
             return;
         }
         boolean owner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(providerId))
                 .orElse(false);
         if (!owner) {

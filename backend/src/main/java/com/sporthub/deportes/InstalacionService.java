@@ -74,7 +74,7 @@ public class InstalacionService {
             result = instalacionRepository.findAll();
         } else if (caller.getRole() == Role.PROVIDER || caller.getRole() == Role.STAFF) {
             UUID providerId = providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElse(null);
             result = providerId != null
@@ -274,7 +274,7 @@ public class InstalacionService {
                     "ROL_INVALIDO", "El administrador no posee instalaciones", HttpStatus.BAD_REQUEST);
         }
         return providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(Provider::getId)
                 .orElseThrow(() -> new BusinessException(
                         "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
@@ -285,7 +285,7 @@ public class InstalacionService {
             return;
         }
         boolean owner = providerRepository
-                .findByUserId(caller.getId())
+                .findFirstByUserId(caller.getId())
                 .map(p -> p.getId().equals(providerId))
                 .orElse(false);
         if (!owner) {

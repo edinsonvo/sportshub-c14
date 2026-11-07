@@ -52,7 +52,7 @@ class ProveedorServiceTest {
         when(provider.getBusinessName()).thenReturn("Deportes Fit S.A.S.");
         when(provider.getLogoUrl()).thenReturn(null);
         when(provider.isActive()).thenReturn(true);
-        when(providerRepository.findByUserId(any())).thenReturn(Optional.of(provider));
+        when(providerRepository.findFirstByUserId(any())).thenReturn(Optional.of(provider));
         when(providerRepository.findById(providerId)).thenReturn(Optional.of(provider));
 
         UUID staffUserId = UUID.randomUUID();

@@ -35,13 +35,13 @@ public class ProveedorService {
         UUID providerId;
         if (caller.getRole() == Role.PROVIDER) {
             providerId = providerRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(Provider::getId)
                     .orElseThrow(() -> new BusinessException(
                             "PROVEEDOR_NO_ENCONTRADO", "Perfil de proveedor no encontrado", HttpStatus.NOT_FOUND));
         } else if (caller.getRole() == Role.STAFF) {
             providerId = staffRepository
-                    .findByUserId(caller.getId())
+                    .findFirstByUserId(caller.getId())
                     .map(ProviderStaff::getProviderId)
                     .orElseThrow(() -> new BusinessException(
                             "PROVEEDOR_NO_ENCONTRADO", "No está asignado a un proveedor", HttpStatus.NOT_FOUND));
