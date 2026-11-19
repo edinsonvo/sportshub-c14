@@ -51,6 +51,9 @@ public class Appointment {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     protected Appointment() {}
 
     public Appointment(
@@ -121,6 +124,15 @@ public class Appointment {
 
     public void setCancellationReason(String cancellationReason) {
         this.cancellationReason = cancellationReason;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
+
+    public void markCompleted(Instant completedAt) {
+        this.status = AppointmentStatus.COMPLETADA;
+        this.completedAt = completedAt;
     }
 
     public void reschedule(LocalDate newDate, LocalTime newStart, LocalTime newEnd) {

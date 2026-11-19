@@ -5,8 +5,10 @@ import com.sporthub.infra.BusinessException;
 import com.sporthub.infra.SportHubMetrics;
 import com.sporthub.user.Role;
 import com.sporthub.user.UserAccount;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AppointmentService {
+
+    // Las fechas y horas de las citas se interpretan en horario colombiano.
+    private static final ZoneId APPOINTMENT_ZONE = ZoneId.of("America/Bogota");
 
     private final AppointmentRepository appointmentRepository;
     private final ProviderServiceRepository serviceRepository;
@@ -147,8 +152,21 @@ public class AppointmentService {
             throw new BusinessException(
                     "TRANSICION_INVALIDA", "Solo se pueden completar citas CONFIRMADAS", HttpStatus.CONFLICT);
         }
-        appointment.setStatus(AppointmentStatus.COMPLETADA);
-        auditLogger.record("Appointment", appointmentId.toString(), "COMPLETADA", caller.getEmail(), null);
+        // Solo puede finalizarse cuando el servicio ya concluyó, no cuando apenas inició.
+        Instant finishedScheduledAt = appointment.getDate()
+                .atTime(appointment.getEndTime())
+                .atZone(APPOINTMENT_ZONE)
+                .toInstant();
+        Instant completedAt = Instant.now();
+        if (completedAt.isBefore(finishedScheduledAt)) {
+            throw new BusinessException(
+                    "CITA_NO_CONCLUIDA",
+                    "Se debe esperar a que la cita concluya para poder finalizarla",
+                    HttpStatus.CONFLICT);
+        }
+        appointment.markCompleted(completedAt);
+        auditLogger.record(
+                "Appointment", appointmentId.toString(), "COMPLETADA", caller.getEmail(), "completedAt=" + completedAt);
         return AppointmentResponse.from(appointmentRepository.save(appointment));
     }
 

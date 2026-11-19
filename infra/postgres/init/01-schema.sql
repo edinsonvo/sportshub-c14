@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS appointment (
     end_time TIME NOT NULL,
     status VARCHAR(30) NOT NULL,
     cancellation_reason VARCHAR(500),
+    completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ck_appointment_range CHECK (start_time < end_time)
 );

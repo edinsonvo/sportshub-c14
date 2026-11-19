@@ -1,5 +1,6 @@
 package com.sporthub.reservas;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
@@ -14,7 +15,8 @@ public record AppointmentResponse(
         LocalTime startTime,
         LocalTime endTime,
         AppointmentStatus status,
-        String cancellationReason) {
+        String cancellationReason,
+        Instant completedAt) {
 
     public static AppointmentResponse from(Appointment a) {
         return new AppointmentResponse(
@@ -27,6 +29,7 @@ public record AppointmentResponse(
                 a.getStartTime(),
                 a.getEndTime(),
                 a.getStatus(),
-                a.getCancellationReason());
+                a.getCancellationReason(),
+                a.getCompletedAt());
     }
 }
