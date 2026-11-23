@@ -13,7 +13,7 @@ completo y despliegue automatizado con Azure DevOps, espejo en GitLab y Render.
 | Fase | **3** (admin, proveedor, personal, cliente, seguridad y pruebas) |
 | Commit local de referencia | `59ddad7` — `feat: complete phase 3 - admin, provider, staff, client portals, security and tests` |
 | Repositorio origen | Azure Repos `Fabrica_escuela_2026_1/sportshub-backend` (`develop`) |
-| Espejo de despliegue | GitLab `udea-fe2026-2/sporthub` (`develop`) |
+| Espejo de despliegue | GitHub `edinsonvo/sportshub-c14` (`develop`) |
 | Plataforma cloud | Render (blueprint `infra/render/render.yaml`) |
 
 ## Stack
@@ -91,19 +91,19 @@ Archivo: `azure-devops/azure-pipelines.yml`. Se dispara en `develop` y `main` (p
 | Pruebas | JUnit + Testcontainers + JaCoCo; vitest con reporte JUnit |
 | Calidad | SonarCloud Quality Gate (se omite si no hay `sonarProjectKey`) |
 | Seguridad | gitleaks, trivy (SCA/SAST) y OWASP dependency-check informativo |
-| Empaquetado | Docker build de backend/frontend y **espejo Azure → GitLab `develop`** |
+| Empaquetado | Docker build de backend/frontend y **espejo Azure → GitHub `develop`** |
 | Despliegue | Deploy hooks opcionales + espera de health checks en Render |
 | Posdepliegue | Smoke tests (health, frontend, métricas, login demo) y evidencia de reversión |
 
 Variables y secretos recomendados en el grupo `sporthub-vars`:
 
-- `GITLAB_TOKEN`: PAT con permiso `write_repository` sobre `udea-fe2026-2/sporthub`.
+- `GITHUB_TOKEN`: PAT con permiso `repo` sobre `edinsonvo/sportshub-c14`.
 - `RENDER_DEPLOY_HOOK_BACKEND` / `RENDER_DEPLOY_HOOK_FRONTEND`: hooks opcionales de Render.
 - `sonarProjectKey`, `sonarOrganization`: configuración de SonarCloud.
 - `dockerRegistry`, `dockerRegistryUser`, `dockerRegistryPassword`: opcionales para publicar imágenes.
 - `securityStrict`: `true` para bloquear la etapa de seguridad ante hallazgos HIGH/CRITICAL.
 
-El push a GitLab `develop` dispara automáticamente los dos servicios de Render
+El push a GitHub `develop` dispara automáticamente los dos servicios de Render
 (`autoDeploy: true` en `infra/render/render.yaml`).
 
 ## Estructura del repositorio

@@ -138,4 +138,4 @@ npm test && npm run build         # frontend, vía Docker node:20-alpine
 
 ### Publicación (según pipeline)
 
-El pipeline `azure-devops/azure-pipelines.yml` espeja `develop` a GitLab (`git push gitlab HEAD:develop`) y Render despliega automáticamente porque `infra/render/render.yaml` define `autoDeploy: true` para ambos servicios web contra la rama `develop` de `https://gitlab.com/udea-fe2026-2/sporthub`. La verificación posterior consiste en los smoke tests documentados: health del backend, frontend HTTP 200, métricas y login demo.
+El pipeline `azure-devops/azure-pipelines.yml` espeja `develop` a GitHub (`git push github HEAD:develop`) y Render despliega automáticamente porque `infra/render/render.yaml` define `autoDeploy: true` para ambos servicios web contra la rama `develop` de `https://github.com/edinsonvo/sportshub-c14`. Ante la falta de acceso a GitLab se creó ese repositorio público en GitHub y se reconnectaron los servicios de Render. La verificación posterior consiste en los smoke tests documentados: health del backend, frontend HTTP 200, métricas y login demo.

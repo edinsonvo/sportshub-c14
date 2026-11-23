@@ -10,7 +10,7 @@ alineada con los *Lineamientos Integrados CodeF@ctory v2.0* (proyecto avanzado).
 | Recurso                | Proveedor | Uso                                                            |
 |------------------------|-----------|----------------------------------------------------------------|
 | Código fuente          | Azure Repos (`jisaacrios/Fabrica_escuela_2026_1`) | Monorepo `sportshub-backend`, ramas `develop` y `main` |
-| Espejo de despliegue   | GitLab (`udea-fe2026-2/sporthub`) | Rama `develop`; Render no soporta Azure Repos |
+| Espejo de despliegue   | GitHub (`edinsonvo/sportshub-c14`) | Rama `develop`; Render no soporta Azure Repos |
 | Backlog + métricas     | Azure DevOps (org `jisaacrios`) | Proyecto `Fabrica_escuela_2026_1` |
 | CI/CD                  | Azure Pipelines | `azure-devops/azure-pipelines.yml` (validación→pruebas→calidad→seguridad→empaquetado→despliegue→posdepliegue) |
 | Control de calidad     | SonarCloud, proyecto `sporthub` | Quality Gate: cobertura ≥65 %, deuda ≤2 días, complejidad <50, 0 vulnerabilidades críticas |
@@ -28,8 +28,8 @@ alineada con los *Lineamientos Integrados CodeF@ctory v2.0* (proyecto avanzado).
    - `Fabrica_escuela_2026_1\Sprint 3` (historiales, filtros, reportes, MFA, auditoría)
 5. **Repositorio**: Azure Repos `Fabrica_escuela_2026_1/sportshub-backend`; proteger `main` y `develop`
    (*branch protection*: mínimo 1 reviewer, comprobaciones obligatorias = pipeline PR).
-6. **Espejo GitLab**: `udea-fe2026-2/sporthub` en rama `develop`. El pipeline lo actualiza
-   automáticamente si existe `GITLAB_TOKEN` en el grupo `sporthub-vars`.
+6. **Espejo GitHub**: `edinsonvo/sportshub-c14` en rama `develop`. El pipeline lo actualiza
+   automáticamente si existe `GITHUB_TOKEN` en el grupo `sporthub-vars`.
 
 ## 3. Importar el backlog
 
@@ -75,7 +75,7 @@ use `feature/HU-XX-<descripción>`).
 ## 8. Enlaces de referencia
 
 - Azure Repos: https://dev.azure.com/jisaacrios/Fabrica_escuela_2026_1/_git/sportshub-backend
-- GitLab (espejo): https://gitlab.com/udea-fe2026-2/sporthub
+- GitHub (espejo): https://github.com/edinsonvo/sportshub-c14
 - Frontend Render: https://sporthub-c14-frontend.onrender.com
 - Backend Render: https://sporthub-c14-backend.onrender.com
 - Health: https://sporthub-c14-backend.onrender.com/api/v1/health

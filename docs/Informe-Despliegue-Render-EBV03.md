@@ -172,7 +172,8 @@ El despliegue quedó **operativo y verificado** sobre el commit `454331b`: backe
 - **Frontend:** https://sporthub-c14-frontend.onrender.com
 - **Backend:** https://sporthub-c14-backend.onrender.com
 - **Health:** https://sporthub-c14-backend.onrender.com/api/v1/health
-- **GitLab:** https://gitlab.com/udea-fe2026-2/sporthub (rama `develop`)
+- **GitHub (repo activo desde 2026-11-23):** https://github.com/edinsonvo/sportshub-c14 (rama `develop`)
+- **GitLab (espejo histórico, ya no usado por Render):** https://gitlab.com/udea-fe2026-2/sporthub
 - **Azure (origen):** https://dev.azure.com/jisaacrios/Fabrica_escuela_2026_1/_git/sportshub-backend (rama `develop`)
 - **Commit desplegado:** `454331b` (hotfix sobre `b8a9f10`, versión 1.0.0 Fase 3)
 - **Servicios Render:** backend `srv-dbailou1egvs73as0t0g`, frontend `srv-dbailum1egvs73as1i3g`

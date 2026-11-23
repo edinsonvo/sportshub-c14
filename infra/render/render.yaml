@@ -1,7 +1,7 @@
 # Render Blueprint — SportHub (Caso 14). Despliegue en la nube (entorno de pruebas).
 #
 # Uso:
-#   1. Sube el repo a GitLab (Render soporta GitHub, GitLab y Bitbucket).
+#   1. Sube el repo a GitHub (https://github.com/edinsonvo/sportshub-c14).
 #   2. Render Dashboard -> New + -> Blueprint -> selecciona este repo y `infra/render/render.yaml`.
 #   3. Define el valor de JWT_SECRET (marcado `sync: false`) cuando el panel lo solicite.
 #
@@ -25,7 +25,7 @@ services:
   - type: web
     name: sporthub-c14-backend
     runtime: docker
-    repo: https://gitlab.com/udea-fe2026-2/sporthub
+    repo: https://github.com/edinsonvo/sportshub-c14
     branch: develop
     rootDir: backend
     dockerfilePath: ./Dockerfile
@@ -73,7 +73,7 @@ services:
   - type: web
     name: sporthub-c14-frontend
     runtime: docker
-    repo: https://gitlab.com/udea-fe2026-2/sporthub
+    repo: https://github.com/edinsonvo/sportshub-c14
     branch: develop
     rootDir: frontend
     dockerfilePath: ./Dockerfile

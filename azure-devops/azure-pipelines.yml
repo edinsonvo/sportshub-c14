@@ -2,8 +2,8 @@
 # Versión 1.0.0 (Fase 3). Flujo:
 #   validación -> pruebas -> calidad -> seguridad -> empaquetado -> despliegue -> posdepliegue
 #
-# El pipeline corre sobre Azure Repos y, si existe GITLAB_TOKEN, espeja el commit
-# a GitLab (rama develop) para que Render auto-despierte el build (autoDeploy: true).
+# El pipeline corre sobre Azure Repos y, si existe GITHUB_TOKEN, espeja el commit
+# a GitHub (rama develop) para que Render auto-despierte el build (autoDeploy: true).
 # Los deploy hooks de Render son opcionales y solo se usan si están definidos.
 trigger:
   branches:
@@ -24,7 +24,7 @@ pool:
 
 variables:
   # Grupo con secretos: RENDER_DEPLOY_HOOK_BACKEND, RENDER_DEPLOY_HOOK_FRONTEND,
-  # GITLAB_TOKEN, sonarProjectKey, sonarOrganization y credenciales del registry.
+  # GITHUB_TOKEN, sonarProjectKey, sonarOrganization y credenciales del registry.
   - group: sporthub-vars
   # Servicio SonarCloud (si no se usa, el job de calidad se omite).
   - group: sonarcloud-service
@@ -247,7 +247,7 @@ stages:
 
   # ------------------------------------------------------------------
   - stage: Empaquetado
-    displayName: 'Empaquetado y espejo a GitLab'
+    displayName: 'Empaquetado y espejo a GitHub'
     dependsOn: [Calidad, Seguridad]
     jobs:
       - job: build_images
@@ -277,10 +277,10 @@ stages:
             displayName: 'Publicar imágenes en registry'
             condition: and(succeeded(), ne(variables['dockerRegistry'], ''))
 
-      - job: mirror_gitlab
-        displayName: 'Espejo Azure Repos -> GitLab (develop)'
+      - job: mirror_github
+        displayName: 'Espejo Azure Repos -> GitHub (develop)'
         dependsOn: build_images
-        # Solo en builds de rama develop (nunca en PR). Si no hay GITLAB_TOKEN,
+        # Solo en builds de rama develop (nunca en PR). Si no hay GITHUB_TOKEN,
         # el script omite el espejo sin fallar el pipeline.
         condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
         steps:
@@ -289,17 +289,17 @@ stages:
             persistCredentials: false
           - script: |
               set -euo pipefail
-              if [ -z "${GITLAB_TOKEN:-}" ] || [ "$GITLAB_TOKEN" = '$(GITLAB_TOKEN)' ]; then
-                echo "GITLAB_TOKEN no configurado; se omite el espejo a GitLab."
+              if [ -z "${GITHUB_TOKEN:-}" ] || [ "$GITHUB_TOKEN" = '$(GITHUB_TOKEN)' ]; then
+                echo "GITHUB_TOKEN no configurado; se omite el espejo a GitHub."
                 exit 0
               fi
               git config user.name  "Azure Pipelines"
               git config user.email "azure-pipelines@sporthub.local"
-              git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/udea-fe2026-2/sporthub.git"
-              git push gitlab HEAD:develop
-            displayName: 'git push a GitLab develop'
+              git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/edinsonvo/sportshub-c14.git"
+              git push github HEAD:develop
+            displayName: 'git push a GitHub develop'
             env:
-              GITLAB_TOKEN: $(GITLAB_TOKEN)
+              GITHUB_TOKEN: $(GITHUB_TOKEN)
               GIT_TERMINAL_PROMPT: '0'
 
   # ------------------------------------------------------------------
@@ -316,7 +316,7 @@ stages:
             deploy:
               steps:
                 - checkout: self
-                # Render ya auto-despliega con el push a GitLab. Los hooks son un
+                # Render ya auto-despliega con el push a GitHub. Los hooks son un
                 # refuerzo opcional para cuando se ejecuta el pipeline sin espejo.
                 - task: PowerShell@2
                   displayName: 'Deploy hook backend (opcional)'
