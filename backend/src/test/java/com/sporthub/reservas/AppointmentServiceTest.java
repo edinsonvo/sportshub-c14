@@ -243,4 +243,121 @@ class AppointmentServiceTest {
                 .isEqualTo("FORBIDDEN");
         assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMADA);
     }
+
+    private UserAccount clienteConId(UUID clientId) {
+        UserAccount clienteMock = mock(UserAccount.class);
+        when(clienteMock.getId()).thenReturn(clientId);
+        when(clienteMock.getRole()).thenReturn(Role.CLIENT);
+        when(clienteMock.getEmail()).thenReturn("cliente@mail.com");
+        return clienteMock;
+    }
+
+    @Test
+    @DisplayName("HU-35: cliente con citas agendadas obtiene su listado")
+    void listarCitasDeClienteConResultados() {
+        UUID clientId = UUID.randomUUID();
+        UserAccount clienteAutenticado = clienteConId(clientId);
+        Appointment cita = new Appointment(
+                providerService.getId(),
+                clientId,
+                schedule.getStaffId(),
+                providerService.getProviderId(),
+                LocalDate.now().plusDays(2),
+                LocalTime.of(10, 0),
+                LocalTime.of(11, 0));
+        when(appointmentRepository.findByClientIdOrderByDateDesc(clientId))
+                .thenReturn(List.of(cita));
+
+        List<AppointmentResponse> resultado = service.listMine(clienteAutenticado, null, null, null);
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).clientId()).isEqualTo(clientId);
+    }
+
+    @Test
+    @DisplayName("HU-35: cliente sin citas agendadas obtiene lista vacía")
+    void listarCitasDeClienteSinResultados() {
+        UUID clientId = UUID.randomUUID();
+        UserAccount clienteAutenticado = clienteConId(clientId);
+        when(appointmentRepository.findByClientIdOrderByDateDesc(clientId))
+                .thenReturn(List.of());
+
+        List<AppointmentResponse> resultado = service.listMine(clienteAutenticado, null, null, null);
+
+        assertThat(resultado).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-35: rechaza consulta con rango de fechas inválido (from > to)")
+    void rechazaRangoFechasInvalido() {
+        LocalDate from = LocalDate.of(2026, 11, 10);
+        LocalDate to = LocalDate.of(2026, 11, 5);
+
+        assertThatThrownBy(() -> service.listMine(client, null, from, to))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode", "status")
+                .containsExactly("RANGO_FECHAS_INVALIDO", HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("HU-35: cliente consulta el detalle de su propia cita")
+    void obtenerDetalleCitaPropia() {
+        UUID clientId = UUID.randomUUID();
+        UserAccount clienteAutenticado = clienteConId(clientId);
+        UUID appointmentId = UUID.randomUUID();
+        Appointment cita = new Appointment(
+                providerService.getId(),
+                clientId,
+                schedule.getStaffId(),
+                providerService.getProviderId(),
+                LocalDate.now().plusDays(1),
+                LocalTime.of(14, 0),
+                LocalTime.of(15, 0));
+        cita.setId(appointmentId);
+        when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.of(cita));
+
+        AppointmentResponse detalle = service.getById(clienteAutenticado, appointmentId);
+
+        assertThat(detalle.id()).isEqualTo(appointmentId);
+        assertThat(detalle.clientId()).isEqualTo(clientId);
+        assertThat(detalle.status()).isEqualTo(AppointmentStatus.SOLICITADA);
+    }
+
+    @Test
+    @DisplayName("HU-35: rechaza consultar detalle de cita perteneciente a otro cliente")
+    void rechazaDetalleCitaAjena() {
+        UUID clientId = UUID.randomUUID();
+        UserAccount clienteAutenticado = clienteConId(clientId);
+        UUID otroClienteId = UUID.randomUUID();
+        UUID appointmentId = UUID.randomUUID();
+        Appointment citaAjena = new Appointment(
+                providerService.getId(),
+                otroClienteId,
+                schedule.getStaffId(),
+                providerService.getProviderId(),
+                LocalDate.now().plusDays(1),
+                LocalTime.of(14, 0),
+                LocalTime.of(15, 0));
+        citaAjena.setId(appointmentId);
+        when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.of(citaAjena));
+
+        assertThatThrownBy(() -> service.getById(clienteAutenticado, appointmentId))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode", "status")
+                .containsExactly("FORBIDDEN", HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("HU-35: retorna NO_ENCONTRADO si la cita consultada no existe")
+    void rechazaDetalleCitaInexistente() {
+        UUID clientId = UUID.randomUUID();
+        UserAccount clienteAutenticado = clienteConId(clientId);
+        UUID appointmentId = UUID.randomUUID();
+        when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getById(clienteAutenticado, appointmentId))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode", "status")
+                .containsExactly("NO_ENCONTRADO", HttpStatus.NOT_FOUND);
+    }
 }
