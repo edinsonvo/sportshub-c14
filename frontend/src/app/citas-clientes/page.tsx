@@ -1,9 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { loadSession } from '@/lib/auth';
+import {
+  changeAppointmentStatus,
+  formatTime,
+  getAppointments,
+  getClients,
+  getMyServices,
+  initials,
+  mapEstadoCliente,
+  type AppointmentAction,
+  type AppointmentStatus,
+  type EstadoCliente,
+} from '@/lib/appointments';
 
-type EstadoCita = 'Pendiente' | 'Confirmada' | 'Cancelada' | 'Finalizada';
+type EstadoCita = EstadoCliente;
+
+interface OpcionEstado {
+  estado: EstadoCita;
+  accion?: AppointmentAction;
+}
 
 interface CitaCliente {
   id: string;
@@ -13,55 +32,8 @@ interface CitaCliente {
   fecha: string;
   horario: string;
   estado: EstadoCita;
+  status: AppointmentStatus;
 }
-
-const CITAS_INICIALES: CitaCliente[] = [
-  {
-    id: '1',
-    cliente: 'Carlos Ramírez',
-    iniciales: 'CR',
-    espacio: 'Cancha de fútbol 5',
-    fecha: '2026-11-05',
-    horario: '08:00 - 09:00',
-    estado: 'Pendiente',
-  },
-  {
-    id: '2',
-    cliente: 'Laura Martínez',
-    iniciales: 'LM',
-    espacio: 'Cancha de tenis',
-    fecha: '2026-11-05',
-    horario: '10:00 - 11:00',
-    estado: 'Confirmada',
-  },
-  {
-    id: '3',
-    cliente: 'Andrés Torres',
-    iniciales: 'AT',
-    espacio: 'Cancha múltiple',
-    fecha: '2026-11-06',
-    horario: '14:00 - 15:00',
-    estado: 'Pendiente',
-  },
-  {
-    id: '4',
-    cliente: 'Paula Herrera',
-    iniciales: 'PH',
-    espacio: 'Piscina semiolímpica',
-    fecha: '2026-11-07',
-    horario: '09:00 - 10:00',
-    estado: 'Cancelada',
-  },
-  {
-    id: '5',
-    cliente: 'Santiago Castro',
-    iniciales: 'SC',
-    espacio: 'Cancha de baloncesto',
-    fecha: '2026-11-08',
-    horario: '16:00 - 17:00',
-    estado: 'Finalizada',
-  },
-];
 
 const ESTADOS_DISPONIBLES: EstadoCita[] = [
   'Pendiente',
@@ -70,8 +42,34 @@ const ESTADOS_DISPONIBLES: EstadoCita[] = [
   'Finalizada',
 ];
 
+function opcionesDeEstado(status: AppointmentStatus): OpcionEstado[] {
+  switch (status) {
+    case 'SOLICITADA':
+      return [
+        { estado: 'Pendiente' },
+        { estado: 'Confirmada', accion: 'confirm' },
+        { estado: 'Cancelada', accion: 'cancel' },
+      ];
+    case 'CONFIRMADA':
+    case 'REPROGRAMADA':
+      return [
+        { estado: 'Confirmada' },
+        { estado: 'Finalizada', accion: 'complete' },
+        { estado: 'Cancelada', accion: 'cancel' },
+      ];
+    case 'COMPLETADA':
+      return [{ estado: 'Finalizada' }];
+    default:
+      return [{ estado: 'Cancelada' }];
+  }
+}
+
 export default function ConsultarCitasClientesPage() {
-  const [citas, setCitas] = useState<CitaCliente[]>(CITAS_INICIALES);
+  const router = useRouter();
+  const [citas, setCitas] = useState<CitaCliente[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [guardando, setGuardando] = useState(false);
 
   const [busqueda, setBusqueda] = useState('');
   const [fecha, setFecha] = useState('');
@@ -87,6 +85,51 @@ export default function ConsultarCitasClientesPage() {
   const [paginaActual, setPaginaActual] = useState(1);
 
   const CITAS_POR_PAGINA = 5;
+
+  async function cargarCitas() {
+    const session = loadSession();
+    if (!session?.accessToken) {
+      router.replace('/login');
+      return;
+    }
+
+    setCargando(true);
+    setError('');
+    try {
+      const [appointments, clientes, servicios] = await Promise.all([
+        getAppointments(session.accessToken),
+        getClients(session.accessToken),
+        getMyServices(session.accessToken),
+      ]);
+
+      const nombresClientes = new Map(clientes.map((c) => [c.id, c.fullName]));
+      const nombresServicios = new Map(servicios.map((s) => [s.id, s.name]));
+
+      setCitas(
+        appointments.map((cita) => ({
+          id: cita.id,
+          cliente: nombresClientes.get(cita.clientId) ?? 'Cliente',
+          iniciales: initials(nombresClientes.get(cita.clientId)),
+          espacio: nombresServicios.get(cita.providerServiceId) ?? 'Servicio',
+          fecha: cita.date,
+          horario: `${formatTime(cita.startTime)} - ${formatTime(cita.endTime)}`,
+          estado: mapEstadoCliente(cita.status),
+          status: cita.status,
+        })),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'No fue posible cargar las citas.',
+      );
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    cargarCitas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   // Filtrar citas
   const citasFiltradas = citas.filter((cita) => {
@@ -142,17 +185,42 @@ export default function ConsultarCitasClientesPage() {
     setNuevoEstado(cita.estado);
   }
 
-  // Guardar nuevo estado
-  function handleGuardarEstado(id: string) {
-    setCitas((prev) =>
-      prev.map((cita) =>
-        cita.id === id
-          ? { ...cita, estado: nuevoEstado }
-          : cita
-      )
+  // Guardar nuevo estado en el backend
+  async function handleGuardarEstado(cita: CitaCliente) {
+    const opcion = opcionesDeEstado(cita.status).find(
+      (item) => item.estado === nuevoEstado,
     );
 
-    setCitaEditando(null);
+    if (!opcion?.accion) {
+      setCitaEditando(null);
+      return;
+    }
+
+    const session = loadSession();
+    if (!session?.accessToken) {
+      router.replace('/login');
+      return;
+    }
+
+    setGuardando(true);
+    setError('');
+    try {
+      await changeAppointmentStatus(
+        session.accessToken,
+        cita.id,
+        opcion.accion,
+      );
+      await cargarCitas();
+      setCitaEditando(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No fue posible actualizar el estado de la cita.',
+      );
+    } finally {
+      setGuardando(false);
+    }
   }
 
   // Estilos de los estados
@@ -468,6 +536,20 @@ export default function ConsultarCitasClientesPage() {
               </p>
             </div>
 
+            {cargando && (
+              <div role="status" style={{ padding: '12px 16px', marginBottom: '14px', borderRadius: '8px', border: '1px solid #2a3c60', backgroundColor: '#111e3b', color: '#a8b9d6', fontSize: '12px' }}>
+                Cargando citas desde el servidor...
+              </div>
+            )}
+            {error && (
+              <div role="alert" style={{ padding: '12px 16px', marginBottom: '14px', borderRadius: '8px', border: '1px solid #dc2626', backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#fca5a5', fontSize: '12px' }}>
+                ⚠️ {error}{' '}
+                <button type="button" onClick={cargarCitas} style={{ background: 'transparent', border: 0, color: '#fca5a5', textDecoration: 'underline', cursor: 'pointer', fontSize: '12px' }}>
+                  Reintentar
+                </button>
+              </div>
+            )}
+
             {/* FILTROS DE BÚSQUEDA */}
             <div
               style={{
@@ -721,19 +803,20 @@ export default function ConsultarCitasClientesPage() {
                                   fontSize: '10px',
                                 }}
                               >
-                                {ESTADOS_DISPONIBLES.map((estado) => (
-                                  <option key={estado} value={estado}>
-                                    {estado}
+                                {opcionesDeEstado(cita.status).map((opcion) => (
+                                  <option key={opcion.estado} value={opcion.estado}>
+                                    {opcion.estado}
                                   </option>
                                 ))}
                               </select>
 
                               <div style={{ display: 'flex', gap: '5px' }}>
                                 <button
-                                  onClick={() => handleGuardarEstado(cita.id)}
+                                  onClick={() => handleGuardarEstado(cita)}
+                                  disabled={guardando}
                                   style={estiloBotonGuardar}
                                 >
-                                  Guardar
+                                  {guardando ? 'Guardando...' : 'Guardar'}
                                 </button>
 
                                 <button
@@ -747,6 +830,9 @@ export default function ConsultarCitasClientesPage() {
                           ) : (
                             <button
                               onClick={() => handleAbrirEdicion(cita)}
+                              disabled={opcionesDeEstado(cita.status).every(
+                                (opcion) => !opcion.accion,
+                              )}
                               style={{
                                 padding: '6px 11px',
                                 backgroundColor: 'transparent',

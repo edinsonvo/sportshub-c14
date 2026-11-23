@@ -1,9 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { loadSession } from '@/lib/auth';
+import {
+  changeAppointmentStatus,
+  formatTime,
+  getAppointments,
+  getClients,
+  getMyServices,
+  initials,
+  mapEstadoAgenda,
+  type AppointmentAction,
+  type AppointmentStatus,
+  type EstadoAgenda,
+} from '@/lib/appointments';
 
-type EstadoCita = 'Finalizada' | 'En progreso' | 'Pendiente' | 'Cancelada';
+type AccionCita = AppointmentAction;
+
+const ACCIONES: { accion: AccionCita; etiqueta: string }[] = [
+  { accion: 'confirm', etiqueta: 'Confirmar' },
+  { accion: 'complete', etiqueta: 'Finalizar' },
+  { accion: 'cancel', etiqueta: 'Cancelar' },
+];
 
 interface CitaAgenda {
   id: string;
@@ -12,64 +32,105 @@ interface CitaAgenda {
   servicio: string;
   detalleServicio: string;
   horario: string;
-  estado: EstadoCita;
+  estado: EstadoAgenda;
+  status: AppointmentStatus;
 }
 
-const CITAS_INICIALES: CitaAgenda[] = [
-  {
-    id: '1',
-    cliente: 'Juan Pérez',
-    iniciales: 'JP',
-    servicio: 'Cancha de Fútbol',
-    detalleServicio: 'Cancha 2 · 60 min',
-    horario: '14:00 - 15:00',
-    estado: 'Finalizada',
-  },
-  {
-    id: '2',
-    cliente: 'Carlos Gómez',
-    iniciales: 'CG',
-    servicio: 'Clase de Natación',
-    detalleServicio: 'Piscina principal · 60 min',
-    horario: '16:00 - 17:00',
-    estado: 'En progreso',
-  },
-  {
-    id: '3',
-    cliente: 'Ana Martínez',
-    iniciales: 'AM',
-    servicio: 'Entrenamiento Funcional',
-    detalleServicio: 'Sala funcional · 60 min',
-    horario: '18:00 - 19:00',
-    estado: 'Pendiente',
-  },
-];
-
-const ESTADOS_DISPONIBLES: EstadoCita[] = [
-  'Finalizada',
-  'En progreso',
-  'Pendiente',
-  'Cancelada',
-];
+function accionesDisponibles(status: AppointmentStatus): AccionCita[] {
+  if (status === 'SOLICITADA') return ['confirm', 'cancel'];
+  if (status === 'CONFIRMADA') return ['complete', 'cancel'];
+  return [];
+}
 
 export default function AdministracionAgendaPage() {
-  const [citas, setCitas] = useState<CitaAgenda[]>(CITAS_INICIALES);
+  const router = useRouter();
+  const [citas, setCitas] = useState<CitaAgenda[]>([]);
   const [busqueda, setBusqueda] = useState<string>('');
-  const [fechaSeleccionada, setFechaSeleccionada] = useState<string>('2026-11-12');
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<string>('');
   const [mensajeAccesible, setMensajeAccesible] = useState<string>('');
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [accionEnCurso, setAccionEnCurso] = useState<string>('');
 
-  function handleCambiarEstado(id: string, nuevoEstado: EstadoCita, cliente: string) {
-    setCitas((prev) =>
-      prev.map((cita) =>
-        cita.id === id ? { ...cita, estado: nuevoEstado } : cita
-      )
-    );
-    setMensajeAccesible(
-      `Estado de la cita de ${cliente} actualizado a "${nuevoEstado}".`
-    );
+  async function cargarCitas(fecha?: string) {
+    const session = loadSession();
+    if (!session?.accessToken) {
+      router.replace('/login');
+      return;
+    }
+
+    setCargando(true);
+    setError('');
+    try {
+      const rango = fecha ? { from: fecha, to: fecha } : undefined;
+      const [appointments, clientes, servicios] = await Promise.all([
+        getAppointments(session.accessToken, rango),
+        getClients(session.accessToken),
+        getMyServices(session.accessToken),
+      ]);
+
+      const nombresClientes = new Map(clientes.map((c) => [c.id, c.fullName]));
+      const nombresServicios = new Map(servicios.map((s) => [s.id, s.name]));
+      const ahora = new Date();
+
+      setCitas(
+        appointments.map((cita) => ({
+          id: cita.id,
+          cliente: nombresClientes.get(cita.clientId) ?? 'Cliente',
+          iniciales: initials(nombresClientes.get(cita.clientId)),
+          servicio: nombresServicios.get(cita.providerServiceId) ?? 'Servicio',
+          detalleServicio: `${formatTime(cita.startTime)} - ${formatTime(cita.endTime)}`,
+          horario: cita.date,
+          estado: mapEstadoAgenda(
+            cita.status,
+            cita.date,
+            cita.endTime,
+            ahora,
+          ),
+          status: cita.status,
+        })),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No fue posible cargar la agenda.');
+    } finally {
+      setCargando(false);
+    }
   }
 
-  function obtenerEstiloBadge(estado: EstadoCita) {
+  useEffect(() => {
+    cargarCitas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  async function handleCambiarEstado(
+    id: string,
+    accion: AccionCita,
+    cliente: string,
+  ) {
+    const session = loadSession();
+    if (!session?.accessToken) {
+      router.replace('/login');
+      return;
+    }
+
+    setAccionEnCurso(id);
+    setError('');
+    try {
+      await changeAppointmentStatus(session.accessToken, id, accion);
+      await cargarCitas(fechaSeleccionada || undefined);
+      const etiqueta =
+        ACCIONES.find((opcion) => opcion.accion === accion)?.etiqueta ?? accion;
+      setMensajeAccesible(
+        `Cita de ${cliente} actualizada correctamente: ${etiqueta}.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No fue posible actualizar la cita.');
+    } finally {
+      setAccionEnCurso('');
+    }
+  }
+
+  function obtenerEstiloBadge(estado: EstadoAgenda) {
     switch (estado) {
       case 'Finalizada':
         return {
@@ -181,6 +242,19 @@ export default function AdministracionAgendaPage() {
               </Link>
             </div>
 
+            {cargando && (
+              <div role="status" style={{ padding: '12px 16px', marginBottom: '20px', borderRadius: '8px', border: '2px solid #334155', backgroundColor: '#0c1324', color: '#cbd5e1', fontSize: '14px' }}>
+                Cargando agenda desde el servidor...
+              </div>
+            )}
+            {error && (
+              <div role="alert" style={{ padding: '12px 16px', marginBottom: '20px', borderRadius: '8px', border: '2px solid #f87171', backgroundColor: 'rgba(153, 27, 27, 0.35)', color: '#fee2e2', fontSize: '14px', fontWeight: '600' }}>
+                ⚠️ {error}{' '}
+                <button type="button" onClick={() => cargarCitas(fechaSeleccionada || undefined)} style={{ background: 'transparent', border: 0, color: '#fecaca', textDecoration: 'underline', cursor: 'pointer', fontSize: '14px' }}>
+                  Reintentar
+                </button>
+              </div>
+            )}
             {mensajeAccesible && (
               <div
                 role="status"
@@ -212,7 +286,10 @@ export default function AdministracionAgendaPage() {
                     type="date"
                     aria-label="Cambiar fecha de agenda"
                     value={fechaSeleccionada}
-                    onChange={(e) => setFechaSeleccionada(e.target.value)}
+                    onChange={(e) => {
+                      setFechaSeleccionada(e.target.value);
+                      cargarCitas(e.target.value || undefined);
+                    }}
                     style={{ padding: '8px 12px', backgroundColor: '#080d1a', borderRadius: '8px', border: '2px solid #475569', color: '#ffffff', fontSize: '13px', outline: 'none', colorScheme: 'dark' }}
                   />
                 </div>
@@ -262,36 +339,44 @@ export default function AdministracionAgendaPage() {
                           </td>
 
                           <td style={{ padding: '16px 14px' }}>
-                            <div role="group" aria-label={`Cambiar estado de ${cita.cliente}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                              {ESTADOS_DISPONIBLES.map((opcion) => {
-                                const esActual = cita.estado === opcion;
-                                return (
-                                  <button
-                                    key={opcion}
-                                    type="button"
-                                    aria-pressed={esActual}
-                                    onClick={() => handleCambiarEstado(cita.id, opcion, cita.cliente)}
-                                    style={{
-                                      padding: '6px 10px',
-                                      borderRadius: '6px',
-                                      fontSize: '12px',
-                                      fontWeight: 'bold',
-                                      cursor: 'pointer',
-                                      backgroundColor: esActual ? '#ffffff' : '#080d1a',
-                                      color: esActual ? '#080d1a' : '#f8fafc',
-                                      border: esActual ? '3px solid #38bdf8' : '2px solid #64748b',
-                                      textDecoration: esActual ? 'underline' : 'none',
-                                    }}
-                                  >
-                                    {esActual ? `✓ ${opcion}` : opcion}
-                                  </button>
-                                );
-                              })}
+                            <div role="group" aria-label={`Acciones de la cita de ${cita.cliente}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              {ACCIONES.filter((opcion) =>
+                                accionesDisponibles(cita.status).includes(opcion.accion)
+                              ).map((opcion) => (
+                                <button
+                                  key={opcion.accion}
+                                  type="button"
+                                  disabled={accionEnCurso === cita.id}
+                                  onClick={() => handleCambiarEstado(cita.id, opcion.accion, cita.cliente)}
+                                  style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    cursor: accionEnCurso === cita.id ? 'not-allowed' : 'pointer',
+                                    backgroundColor: '#080d1a',
+                                    color: '#f8fafc',
+                                    border: '2px solid #64748b',
+                                  }}
+                                >
+                                  {opcion.etiqueta}
+                                </button>
+                              ))}
+                              {accionesDisponibles(cita.status).length === 0 && (
+                                <span style={{ fontSize: '12px', color: '#94a3b8' }}>Sin acciones disponibles</span>
+                              )}
                             </div>
                           </td>
                         </tr>
                       );
                     })}
+                    {!cargando && citasFiltradas.length === 0 && (
+                      <tr>
+                        <td colSpan={5} style={{ padding: '24px 14px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                          No hay citas para los filtros seleccionados.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

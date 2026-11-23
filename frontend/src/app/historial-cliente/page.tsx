@@ -1,9 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { loadSession } from '@/lib/auth';
+import {
+  formatTime,
+  getAppointments,
+  getClients,
+  getMyServices,
+  initials,
+  mapEstadoHistorial,
+  type ClientItem,
+  type EstadoHistorial,
+} from '@/lib/appointments';
 
-type EstadoCita = 'Agendada' | 'Realizada' | 'Cancelada';
+type EstadoCita = EstadoHistorial;
 
 interface Cita {
   id: string;
@@ -11,32 +23,7 @@ interface Cita {
   hora: string;
   servicio: string;
   estado: EstadoCita;
-  centro: string;
 }
-
-const CENTRO_PROVEEDOR = 'Centro Deportivo Norte';
-
-const CLIENTE_MOCK = {
-  nombre: 'Laura Gómez',
-  iniciales: 'LG',
-  email: 'laura.gomez@email.com',
-  telefono: '+34 612 458 219',
-  desde: 'mar 2025',
-};
-
-const DATOS_MOCK_CITAS: Cita[] = [
-  { id: '1', fecha: '2026-12-05', hora: '10:00', servicio: 'Clase de Natación', estado: 'Agendada', centro: 'Centro Deportivo Norte' },
-  { id: '2', fecha: '2026-11-28', hora: '16:30', servicio: 'Entrenamiento Funcional', estado: 'Agendada', centro: 'Centro Deportivo Norte' },
-  { id: '3', fecha: '2026-11-25', hora: '08:00', servicio: 'Cancha de Fútbol', estado: 'Agendada', centro: 'Centro Deportivo Norte' },
-  { id: '4', fecha: '2026-11-12', hora: '18:00', servicio: 'Entrenamiento Funcional', estado: 'Realizada', centro: 'Centro Deportivo Norte' },
-  { id: '5', fecha: '2026-10-30', hora: '09:00', servicio: 'Clase de Natación', estado: 'Realizada', centro: 'Centro Deportivo Norte' },
-  { id: '6', fecha: '2026-10-15', hora: '19:00', servicio: 'Cancha de Fútbol', estado: 'Cancelada', centro: 'Centro Deportivo Norte' },
-  { id: '7', fecha: '2026-09-20', hora: '07:30', servicio: 'Entrenamiento Funcional', estado: 'Realizada', centro: 'Centro Deportivo Norte' },
-  { id: '8', fecha: '2026-08-02', hora: '17:00', servicio: 'Clase de Natación', estado: 'Cancelada', centro: 'Centro Deportivo Norte' },
-  { id: '9', fecha: '2026-03-14', hora: '11:00', servicio: 'Clase de Natación', estado: 'Realizada', centro: 'Centro Deportivo Norte' },
-  // Cita de otro centro: no debe mostrarse (Escenario 2)
-  { id: '10', fecha: '2026-10-10', hora: '12:00', servicio: 'Yoga', estado: 'Realizada', centro: 'Centro Deportivo Sur' },
-];
 
 const COLORES_ESTADO: Record<EstadoCita, { fondo: string; texto: string }> = {
   Agendada: { fondo: 'rgba(59, 130, 246, 0.15)', texto: '#60a5fa' },
@@ -71,24 +58,100 @@ const estiloLabel: React.CSSProperties = {
 };
 
 export default function HistorialCitasClientePage() {
-  // Escenario 2: solo las citas del centro del proveedor
-  const citasDelCentro = DATOS_MOCK_CITAS.filter((c) => c.centro === CENTRO_PROVEEDOR);
+  const router = useRouter();
+  const [clientes, setClientes] = useState<ClientItem[]>([]);
+  const [clienteId, setClienteId] = useState<string>('');
+  const [citasPorCliente, setCitasPorCliente] = useState<Record<string, Cita[]>>(
+    {},
+  );
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string>('');
 
-  const [fechaInicio, setFechaInicio] = useState<string>('2026-01-01');
-  const [fechaFin, setFechaFin] = useState<string>('2026-12-31');
+  const [fechaInicio, setFechaInicio] = useState<string>('');
+  const [fechaFin, setFechaFin] = useState<string>('');
   const [estado, setEstado] = useState<'Todos' | EstadoCita>('Todos');
   const [errorFecha, setErrorFecha] = useState<string>('');
 
-  // Escenario 1: al ingresar se muestran todas las citas del cliente
-  const [resultados, setResultados] = useState<Cita[]>(
-    [...citasDelCentro].sort((a, b) => `${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`))
-  );
+  const citasDelCliente = clienteId ? (citasPorCliente[clienteId] ?? []) : [];
+  const [resultados, setResultados] = useState<Cita[]>([]);
+
+  async function cargarDatos() {
+    const session = loadSession();
+    if (!session?.accessToken) {
+      router.replace('/login');
+      return;
+    }
+
+    setCargando(true);
+    setError('');
+    try {
+      const [appointments, clientesApi, servicios] = await Promise.all([
+        getAppointments(session.accessToken),
+        getClients(session.accessToken),
+        getMyServices(session.accessToken),
+      ]);
+
+      const nombresServicios = new Map(servicios.map((s) => [s.id, s.name]));
+      const agrupadas: Record<string, Cita[]> = {};
+      appointments.forEach((cita) => {
+        const item: Cita = {
+          id: cita.id,
+          fecha: cita.date,
+          hora: formatTime(cita.startTime),
+          servicio: nombresServicios.get(cita.providerServiceId) ?? 'Servicio',
+          estado: mapEstadoHistorial(cita.status),
+        };
+        (agrupadas[cita.clientId] ??= []).push(item);
+      });
+
+      setClientes(clientesApi);
+      setCitasPorCliente(agrupadas);
+      setClienteId((actual) =>
+        actual && clientesApi.some((c) => c.id === actual)
+          ? actual
+          : (clientesApi[0]?.id ?? ''),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'No fue posible cargar el historial.',
+      );
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  useEffect(() => {
+    setResultados(
+      [...citasDelCliente].sort((a, b) =>
+        `${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`),
+      ),
+    );
+    setFechaInicio('');
+    setFechaFin('');
+    setEstado('Todos');
+    setErrorFecha('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteId, citasDelCliente]);
+
+  const cliente = clientes.find((c) => c.id === clienteId);
+  const nombreCliente = cliente?.fullName ?? 'Sin cliente seleccionado';
+  const desde = cliente?.createdAt
+    ? new Date(cliente.createdAt).toLocaleDateString('es-CO', {
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—';
 
   const resumen = {
-    total: citasDelCentro.length,
-    realizadas: citasDelCentro.filter((c) => c.estado === 'Realizada').length,
-    agendadas: citasDelCentro.filter((c) => c.estado === 'Agendada').length,
-    canceladas: citasDelCentro.filter((c) => c.estado === 'Cancelada').length,
+    total: citasDelCliente.length,
+    realizadas: citasDelCliente.filter((c) => c.estado === 'Realizada').length,
+    agendadas: citasDelCliente.filter((c) => c.estado === 'Agendada').length,
+    canceladas: citasDelCliente.filter((c) => c.estado === 'Cancelada').length,
   };
 
   const tarjetas = [
@@ -111,21 +174,21 @@ export default function HistorialCitasClientePage() {
     e.preventDefault();
     setErrorFecha('');
 
-    if (!fechaInicio || !fechaFin) {
+    if ((fechaInicio && !fechaFin) || (!fechaInicio && fechaFin)) {
       setErrorFecha('Por favor selecciona una fecha de inicio y una fecha de fin.');
       return;
     }
 
-    if (fechaInicio > fechaFin) {
+    if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
       setErrorFecha('La fecha de inicio no puede ser mayor a la fecha de fin.');
       return;
     }
 
-    const filtradas = citasDelCentro
+    const filtradas = citasDelCliente
       .filter(
         (c) =>
-          c.fecha >= fechaInicio &&
-          c.fecha <= fechaFin &&
+          (!fechaInicio || c.fecha >= fechaInicio) &&
+          (!fechaFin || c.fecha <= fechaFin) &&
           (estado === 'Todos' || c.estado === estado)
       )
       .sort((a, b) => `${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`));
@@ -201,7 +264,7 @@ export default function HistorialCitasClientePage() {
             <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px 0' }}>
               <Link href="/clientes" style={{ color: '#64748b', textDecoration: 'none' }}>Clientes</Link>
               {' / '}
-              <span>{CLIENTE_MOCK.nombre}</span>
+              <span>{nombreCliente}</span>
               {' / '}
               <span style={{ color: '#ffffff', fontWeight: 'bold' }}>Historial de citas</span>
             </p>
@@ -211,16 +274,50 @@ export default function HistorialCitasClientePage() {
               Consulta todas las citas que ha solicitado el cliente en tu centro deportivo.
             </p>
 
+            {cargando && (
+              <div role="status" style={{ padding: '12px 16px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #1e293b', backgroundColor: '#0c1324', color: '#94a3b8', fontSize: '13px' }}>
+                Cargando clientes y citas desde el servidor...
+              </div>
+            )}
+            {error && (
+              <div role="alert" style={{ padding: '12px 16px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #ef4444', backgroundColor: 'rgba(220, 38, 38, 0.1)', color: '#f87171', fontSize: '13px' }}>
+                ⚠️ {error}{' '}
+                <button type="button" onClick={cargarDatos} style={{ background: 'transparent', border: 0, color: '#fca5a5', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>
+                  Reintentar
+                </button>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="cliente-historial" style={{ fontSize: '13px', fontWeight: 'bold', color: '#cbd5e1', display: 'block', marginBottom: '8px' }}>
+                SELECCIONA UN CLIENTE
+              </label>
+              <select
+                id="cliente-historial"
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+                disabled={cargando || clientes.length === 0}
+                style={estiloInput}
+              >
+                {clientes.length === 0 && <option value="">No hay clientes con citas</option>}
+                {clientes.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.fullName} · {item.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <section style={{ padding: '24px', borderRadius: '16px', border: '1px solid #1e293b', backgroundColor: '#0c1324', marginBottom: '24px', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
                 <div style={{ width: '64px', height: '64px', borderRadius: '16px', backgroundColor: '#1e3a8a', border: '1px solid #2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#93c5fd', fontSize: '22px', flexShrink: 0 }}>
-                  {CLIENTE_MOCK.iniciales}
+                  {initials(cliente?.fullName)}
                 </div>
                 <div>
                   <p style={{ margin: '0 0 2px 0', fontSize: '11px', letterSpacing: '1.5px', color: '#64748b', fontWeight: 'bold' }}>CLIENTE</p>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '22px', fontWeight: 'bold', color: '#ffffff' }}>{CLIENTE_MOCK.nombre}</h4>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '22px', fontWeight: 'bold', color: '#ffffff' }}>{nombreCliente}</h4>
                   <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                    {CLIENTE_MOCK.email} &nbsp;•&nbsp; {CLIENTE_MOCK.telefono} &nbsp;•&nbsp; Cliente desde {CLIENTE_MOCK.desde}
+                    {cliente?.email ?? '—'} &nbsp;•&nbsp; {cliente?.phone || 'Teléfono no registrado'} &nbsp;•&nbsp; Cliente desde {desde}
                   </p>
                 </div>
               </div>

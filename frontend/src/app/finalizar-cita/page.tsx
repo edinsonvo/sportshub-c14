@@ -1,7 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { loadSession } from '@/lib/auth';
+import { ApiError } from '@/lib/api';
+import {
+  changeAppointmentStatus,
+  formatDate,
+  formatTime,
+  getAppointments,
+  getClients,
+  getMyServices,
+  initials,
+  type ClientItem,
+  type ServiceItem,
+} from '@/lib/appointments';
 
 interface CitaCierre {
   id: string;
@@ -16,47 +30,106 @@ interface CitaCierre {
   fechaHoraFinalizacion: string | null;
 }
 
-const CITAS_ESCENARIOS_MOCK: Record<'concluida' | 'futura', CitaCierre> = {
-  concluida: {
-    id: '101',
-    codigo: 'ID: #SH-2026',
-    cliente: 'Carlos Mendoza',
-    iniciales: 'CM',
-    servicio: 'Clase de Tenis',
-    fechaHoraTexto: 'Hoy · Hace 1 hora',
-    duracion: '60 minutos',
-    yaConcluyo: true,
-    estado: 'Concluida',
-    fechaHoraFinalizacion: null,
-  },
-  futura: {
-    id: '102',
-    codigo: 'ID: #SH-2027',
-    cliente: 'Valeria Gómez',
-    iniciales: 'VG',
-    servicio: 'Cancha de Fútbol 5',
-    fechaHoraTexto: 'Mañana · 05:00 PM',
-    duracion: '60 minutos',
-    yaConcluyo: false,
-    estado: 'Programada',
-    fechaHoraFinalizacion: null,
-  },
+const CITA_VACIA: CitaCierre = {
+  id: '',
+  codigo: '—',
+  cliente: 'Sin citas disponibles',
+  iniciales: '—',
+  servicio: '—',
+  fechaHoraTexto: '—',
+  duracion: '—',
+  yaConcluyo: false,
+  estado: 'Programada',
+  fechaHoraFinalizacion: null,
 };
 
+function duracionTexto(inicio: string, fin: string): string {
+  const [h1, m1] = inicio.split(':').map(Number);
+  const [h2, m2] = fin.split(':').map(Number);
+  return `${(h2 ?? 0) * 60 + (m2 ?? 0) - ((h1 ?? 0) * 60 + (m1 ?? 0))} minutos`;
+}
+
 export default function RegistrarFinalizacionCitaPage() {
-  const [escenarioActivo, setEscenarioActivo] = useState<'concluida' | 'futura'>('concluida');
-  const [citaActual, setCitaActual] = useState<CitaCierre>(CITAS_ESCENARIOS_MOCK.concluida);
+  const router = useRouter();
+  const [citas, setCitas] = useState<CitaCierre[]>([]);
+  const [citaSeleccionadaId, setCitaSeleccionadaId] = useState<string>('');
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string>('');
   const [errorValidacion, setErrorValidacion] = useState<string>('');
   const [mensajeExito, setMensajeExito] = useState<string>('');
 
-  function cambiarEscenario(tipo: 'concluida' | 'futura') {
-    setEscenarioActivo(tipo);
-    setCitaActual({ ...CITAS_ESCENARIOS_MOCK[tipo] });
-    setErrorValidacion('');
-    setMensajeExito('');
+  async function cargarCitas() {
+    const session = loadSession();
+    if (!session?.accessToken) {
+      router.replace('/login');
+      return;
+    }
+
+    setCargando(true);
+    setError('');
+    try {
+      const [appointments, clientes, servicios] = await Promise.all([
+        getAppointments(session.accessToken),
+        getClients(session.accessToken),
+        getMyServices(session.accessToken),
+      ]);
+
+      const nombresClientes = new Map<string, ClientItem>(
+        clientes.map((cliente) => [cliente.id, cliente]),
+      );
+      const nombresServicios = new Map<string, ServiceItem>(
+        servicios.map((servicio) => [servicio.id, servicio]),
+      );
+      const ahora = new Date();
+
+      const opciones = appointments
+        .filter((cita) => cita.status === 'CONFIRMADA' || cita.status === 'COMPLETADA')
+        .map((cita) => {
+          const fin = new Date(`${cita.date}T${cita.endTime}:00-05:00`);
+          const cliente = nombresClientes.get(cita.clientId);
+          const servicio = nombresServicios.get(cita.providerServiceId);
+          return {
+            id: cita.id,
+            codigo: `ID: #${cita.id.slice(0, 8).toUpperCase()}`,
+            cliente: cliente?.fullName ?? 'Cliente',
+            iniciales: initials(cliente?.fullName),
+            servicio: servicio?.name ?? 'Servicio',
+            fechaHoraTexto: `${formatDate(cita.date)} · ${formatTime(cita.startTime)} - ${formatTime(cita.endTime)}`,
+            duracion: duracionTexto(cita.startTime, cita.endTime),
+            yaConcluyo: ahora >= fin,
+            estado: cita.status === 'COMPLETADA' ? ('Finalizada' as const) : ('Programada' as const),
+            fechaHoraFinalizacion: cita.completedAt
+              ? new Date(cita.completedAt).toLocaleString('es-CO')
+              : null,
+          };
+        });
+
+      setCitas(opciones);
+      setCitaSeleccionadaId((actual) => actual || opciones[0]?.id || '');
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'No fue posible consultar las citas.',
+      );
+    } finally {
+      setCargando(false);
+    }
   }
 
-  function handleFinalizarCita() {
+  useEffect(() => {
+    cargarCitas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  const citaActual =
+    citas.find((cita) => cita.id === citaSeleccionadaId) ?? CITA_VACIA;
+
+  async function handleFinalizarCita() {
+    const session = loadSession();
+    if (!session?.accessToken || !citaActual.id) {
+      router.replace('/login');
+      return;
+    }
+
     setErrorValidacion('');
     setMensajeExito('');
 
@@ -65,22 +138,23 @@ export default function RegistrarFinalizacionCitaPage() {
       return;
     }
 
-    const ahora = new Date();
-    const marcaTiempo = ahora.toLocaleString('es-CO', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-
-    setCitaActual({
-      ...citaActual,
-      estado: 'Finalizada',
-      fechaHoraFinalizacion: marcaTiempo,
-    });
-    setMensajeExito(`Cita actualizada a "Finalizada" el ${marcaTiempo}.`);
+    try {
+      await changeAppointmentStatus(
+        session.accessToken,
+        citaActual.id,
+        'complete',
+      );
+      await cargarCitas();
+      setMensajeExito('La cita fue marcada como finalizada correctamente.');
+    } catch (err) {
+      setErrorValidacion(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'No fue posible finalizar la cita.',
+      );
+    }
   }
   return (
     <div style={{ display: 'flex', backgroundColor: '#080d1a', minHeight: '100vh', width: '100vw', margin: 0, padding: 0, color: '#ffffff', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
@@ -141,21 +215,42 @@ export default function RegistrarFinalizacionCitaPage() {
             <h3 style={{ fontSize: '26px', fontWeight: 'bold', margin: '0 0 6px 0', color: '#ffffff' }}>Gestión y Cierre de Citas</h3>
             <p style={{ fontSize: '13px', color: '#94a3b8', margin: '0 0 24px 0' }}>Valida y completa las citas programadas en tu centro deportivo.</p>
 
-            <div style={{ display: 'inline-flex', gap: '8px', padding: '4px', backgroundColor: '#0c1324', border: '1px solid #1e293b', borderRadius: '8px', marginBottom: '28px' }}>
-              <button
-                type="button"
-                onClick={() => cambiarEscenario('concluida')}
-                style={{ padding: '8px 16px', borderRadius: '6px', border: '0', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: escenarioActivo === 'concluida' ? '#2563eb' : 'transparent', color: escenarioActivo === 'concluida' ? '#ffffff' : '#94a3b8' }}
+            {cargando && (
+              <div style={{ fontSize: '13px', padding: '12px 16px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #1e293b', backgroundColor: '#0c1324', color: '#94a3b8' }}>
+                Cargando citas desde el servidor...
+              </div>
+            )}
+            {error && (
+              <div style={{ fontSize: '13px', padding: '12px 16px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #ef4444', backgroundColor: 'rgba(220, 38, 38, 0.1)', color: '#f87171' }}>
+                ⚠️ {error}{' '}
+                <button type="button" onClick={cargarCitas} style={{ background: 'transparent', border: 0, color: '#fca5a5', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>
+                  Reintentar
+                </button>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '28px' }}>
+              <label htmlFor="cita-a-finalizar" style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '8px', fontWeight: 'bold' }}>
+                SELECCIONA UNA CITA
+              </label>
+              <select
+                id="cita-a-finalizar"
+                value={citaSeleccionadaId}
+                onChange={(e) => {
+                  setCitaSeleccionadaId(e.target.value);
+                  setErrorValidacion('');
+                  setMensajeExito('');
+                }}
+                disabled={cargando || citas.length === 0}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #1e293b', backgroundColor: '#0c1324', color: '#ffffff', fontSize: '13px' }}
               >
-                ● Cita Concluida
-              </button>
-              <button
-                type="button"
-                onClick={() => cambiarEscenario('futura')}
-                style={{ padding: '8px 16px', borderRadius: '6px', border: '0', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: escenarioActivo === 'futura' ? '#2563eb' : 'transparent', color: escenarioActivo === 'futura' ? '#ffffff' : '#94a3b8' }}
-              >
-                ● Cita Futura (Error)
-              </button>
+                {citas.length === 0 && <option value="">No hay citas confirmadas ni finalizadas</option>}
+                {citas.map((cita) => (
+                  <option key={cita.id} value={cita.id}>
+                    {cita.codigo} · {cita.cliente} · {cita.servicio} · {cita.fechaHoraTexto}
+                  </option>
+                ))}
+              </select>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div>
@@ -238,16 +333,16 @@ export default function RegistrarFinalizacionCitaPage() {
                 <button
                   type="button"
                   onClick={handleFinalizarCita}
-                  disabled={citaActual.estado === 'Finalizada'}
+                  disabled={cargando || !citaActual.id || citaActual.estado === 'Finalizada'}
                   style={{
                     padding: '10px 22px',
-                    backgroundColor: citaActual.estado === 'Finalizada' ? '#1e293b' : '#2563eb',
-                    color: citaActual.estado === 'Finalizada' ? '#94a3b8' : '#ffffff',
+                    backgroundColor: cargando || !citaActual.id || citaActual.estado === 'Finalizada' ? '#1e293b' : '#2563eb',
+                    color: cargando || !citaActual.id || citaActual.estado === 'Finalizada' ? '#94a3b8' : '#ffffff',
                     fontSize: '13px',
                     fontWeight: 'bold',
                     borderRadius: '8px',
                     border: '0',
-                    cursor: citaActual.estado === 'Finalizada' ? 'not-allowed' : 'pointer',
+                    cursor: cargando || !citaActual.id || citaActual.estado === 'Finalizada' ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {citaActual.estado === 'Finalizada' ? 'Cita Finalizada ✓' : 'Finalizar Cita'}

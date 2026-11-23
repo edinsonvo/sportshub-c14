@@ -2,6 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { loadSession } from '@/lib/auth';
+import { getAppointments, getMyServices } from '@/lib/appointments';
 
 interface ServicioReporte {
   id: string;
@@ -11,38 +14,16 @@ interface ServicioReporte {
   tendencia: string;
 }
 
-const DATOS_MOCK_REPORTES: ServicioReporte[] = [
-  {
-    id: '1',
-    nombre: 'Entrenamiento Funcional',
-    categoria: 'Entrenamiento',
-    solicitudes: 98,
-    tendencia: '+12%',
-  },
-  {
-    id: '2',
-    nombre: 'Cancha de Fútbol',
-    categoria: 'Alquiler de espacios',
-    solicitudes: 150,
-    tendencia: '+18%',
-  },
-  {
-    id: '3',
-    nombre: 'Clase de Natación',
-    categoria: 'Clases dirigidas',
-    solicitudes: 45,
-    tendencia: '+6%',
-  },
-];
-
 export default function ReporteUsoServiciosPage() {
-  const [fechaInicio, setFechaInicio] = useState<string>('2025-01-01');
-  const [fechaFin, setFechaFin] = useState<string>('2025-01-31');
+  const router = useRouter();
+  const [fechaInicio, setFechaInicio] = useState<string>('2026-11-01');
+  const [fechaFin, setFechaFin] = useState<string>('2026-11-30');
   const [resultados, setResultados] = useState<ServicioReporte[]>([]);
   const [reporteGenerado, setReporteGenerado] = useState<boolean>(false);
   const [errorFecha, setErrorFecha] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
-  function handleGenerarReporte(e: React.FormEvent) {
+  async function handleGenerarReporte(e: React.FormEvent) {
     e.preventDefault();
     setErrorFecha('');
 
@@ -56,17 +37,52 @@ export default function ReporteUsoServiciosPage() {
       return;
     }
 
-    setReporteGenerado(true);
-
-    if (!fechaInicio.startsWith('2025-01')) {
-      setResultados([]);
+    const session = loadSession();
+    if (!session?.accessToken) {
+      router.replace('/login');
       return;
     }
 
-    const ordenados = [...DATOS_MOCK_REPORTES].sort(
-      (a, b) => b.solicitudes - a.solicitudes
-    );
-    setResultados(ordenados);
+    setLoading(true);
+    try {
+      const [appointments, servicios] = await Promise.all([
+        getAppointments(session.accessToken, { from: fechaInicio, to: fechaFin }),
+        getMyServices(session.accessToken),
+      ]);
+
+      const nombres = new Map(servicios.map((s) => [s.id, s.name]));
+      const conteo = new Map<string, number>();
+      appointments.forEach((cita) => {
+        conteo.set(
+          cita.providerServiceId,
+          (conteo.get(cita.providerServiceId) ?? 0) + 1,
+        );
+      });
+
+      const total = appointments.length;
+      setResultados(
+        [...conteo.entries()]
+          .map(([id, solicitudes]) => ({
+            id,
+            nombre: nombres.get(id) ?? 'Servicio',
+            categoria: 'Servicio',
+            solicitudes,
+            tendencia: total
+              ? `${Math.round((solicitudes / total) * 100)}% del total`
+              : '0%',
+          }))
+          .sort((a, b) => b.solicitudes - a.solicitudes),
+      );
+      setReporteGenerado(true);
+    } catch (err) {
+      setErrorFecha(
+        err instanceof Error
+          ? err.message
+          : 'No fue posible generar el reporte.',
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -164,9 +180,10 @@ export default function ReporteUsoServiciosPage() {
                 <div>
                   <button
                     type="submit"
-                    style={{ padding: '11px 24px', backgroundColor: '#2563eb', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '0', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    disabled={loading}
+                    style={{ padding: '11px 24px', backgroundColor: loading ? '#1e293b' : '#2563eb', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '0', cursor: loading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                   >
-                    Generar reporte de uso de servicios
+                    {loading ? 'Generando...' : 'Generar reporte de uso de servicios'}
                   </button>
                 </div>
               </div>
