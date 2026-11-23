@@ -53,6 +53,12 @@ public class AppointmentController {
         return ResponseEntity.ok(appointmentService.listMine(SecurityUtils.currentUser(), status, from, to));
     }
 
+    @Operation(summary = "Consultar detalle de una cita agendada (HU-35)")
+    @GetMapping("/{id}")
+    public ResponseEntity<AppointmentResponse> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(appointmentService.getById(SecurityUtils.currentUser(), id));
+    }
+
     @Operation(summary = "Confirmar solicitud de cita (HU-40)")
     @PatchMapping("/{id}/confirm")
     public ResponseEntity<AppointmentResponse> confirm(@PathVariable UUID id) {

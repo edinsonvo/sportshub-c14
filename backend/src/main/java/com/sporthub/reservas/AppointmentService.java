@@ -173,6 +173,12 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> listMine(
             UserAccount caller, AppointmentStatus status, LocalDate from, LocalDate to) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BusinessException(
+                    "RANGO_FECHAS_INVALIDO",
+                    "La fecha inicial ('from') no puede ser posterior a la fecha final ('to')",
+                    HttpStatus.BAD_REQUEST);
+        }
         List<Appointment> result;
         if (caller.getRole() == Role.CLIENT) {
             result = appointmentRepository.findByClientIdOrderByDateDesc(caller.getId());
@@ -195,6 +201,19 @@ public class AppointmentService {
                 .filter(a -> to == null || !a.getDate().isAfter(to))
                 .map(AppointmentResponse::from)
                 .toList();
+    }
+
+    public AppointmentResponse getById(UserAccount caller, UUID appointmentId) {
+        Appointment appointment = require(appointmentId);
+        if (caller.getRole() == Role.CLIENT) {
+            if (!appointment.getClientId().equals(caller.getId())) {
+                throw new BusinessException(
+                        "FORBIDDEN", "No tiene permisos para consultar esta cita", HttpStatus.FORBIDDEN);
+            }
+        } else {
+            requireProviderAccess(caller, appointment);
+        }
+        return AppointmentResponse.from(appointment);
     }
 
     public List<AvailabilityChecker.Slot> availability(UUID serviceId, LocalDate date) {
