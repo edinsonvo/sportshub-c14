@@ -142,8 +142,8 @@ El pipeline `azure-devops/azure-pipelines.yml` espeja `develop` a GitHub (`git p
 
 ### Resultado real del despliegue (2026-11-23)
 
-- Repositorio `edinsonvo/sportshub-c14`: ramas `main` y `develop` en `1785cbe`.
-- Render: `sporthub-c14-backend` y `sporthub-c14-frontend` conectados a GitHub `develop` y desplegando el commit `1785cbe`.
+- Repositorio `edinsonvo/sportshub-c14`: ramas `main` y `develop` apuntando al mismo commit.
+- Render: `sporthub-c14-backend` y `sporthub-c14-frontend` conectados a GitHub `develop` y desplegando el código de esa rama; cada push dispara un deploy vía webhook hacia el Deploy Hook de cada servicio (verificado con los despliegues `Deploy Hook` del 2026-11-23).
 - La BD gratuita original expiró; se creó `sporthub-db-v2` (PostgreSQL 18, Oregon) y se actualizaron las variables `DB_*` del backend. Los datos demo se regeneraron con `DEMO_DATA_SEED=true`.
 - Smoke tests ejecutados con éxito:
   - `GET /api/v1/health` → 200 `{"service":"sporthub-backend","status":"UP"}`
