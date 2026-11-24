@@ -48,13 +48,13 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ## 2. Despliegue en nube (Render, blueprint)
 
-1. Mantener el código en Azure Repos (`develop`) y espejarlo a GitLab (`udea-fe2026-2/sporthub`,
+1. Mantener el código en Azure Repos (`develop`) y espejarlo a GitHub (`edinsonvo/sportshub-c14`,
    rama `develop`), porque Render no integra Azure DevOps.
-2. En Render: **New + → Blueprint** apuntando al repo de GitLab; seleccionar `infra/render/render.yaml`.
+2. En Render: **New + → Blueprint** apuntando al repo de GitHub; seleccionar `infra/render/render.yaml`.
 3. Definir secretos en cada servicio (el blueprint marca `sync: false`):
    - `JWT_SECRET` (≥32 bytes).
 4. Verificar health: `https://sporthub-c14-backend.onrender.com/api/v1/health`.
-5. El blueprint tiene `autoDeploy: true`: cada push a GitLab `develop` redespliega backend y frontend.
+5. El blueprint tiene `autoDeploy: true`: cada push a GitHub `develop` redespliega backend y frontend.
    Los Deploy Hooks de Render (`RENDER_DEPLOY_HOOK_BACKEND`/`RENDER_DEPLOY_HOOK_FRONTEND`) son opcionales.
 
 | Servicio | URL |
@@ -68,10 +68,10 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 - Importar `azure-devops/azure-pipelines.yml` en el proyecto `Fabrica_escuela_2026_1`.
 - Variable groups: `sporthub-vars` (secretos) y `sonarcloud-service` (SonarCloud).
-  Variables clave: `GITLAB_TOKEN`, `RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`,
+  Variables clave: `GITHUB_TOKEN`, `RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`,
   `sonarProjectKey`, `sonarOrganization`, `securityStrict`.
 - Etapas: Validación → Pruebas → Calidad (SonarCloud Quality Gate) → Seguridad (gitleaks + trivy + OWASP) →
-  Empaquetado (Docker + espejo a GitLab) → Despliegue (Render + health checks) → Posdepliegue (smoke tests).
+  Empaquetado (Docker + espejo a GitHub) → Despliegue (Render + health checks) → Posdepliegue (smoke tests).
 - **PR policy**: comprobaciones obligatorias = pipeline en PR; mínimo 1 reviewer.
 - El despliegue no se ejecuta en PR (`Build.Reason != PullRequest`).
 

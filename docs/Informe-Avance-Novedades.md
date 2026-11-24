@@ -138,4 +138,16 @@ npm test && npm run build         # frontend, vía Docker node:20-alpine
 
 ### Publicación (según pipeline)
 
-El pipeline `azure-devops/azure-pipelines.yml` espeja `develop` a GitHub (`git push github HEAD:develop`) y Render despliega automáticamente porque `infra/render/render.yaml` define `autoDeploy: true` para ambos servicios web contra la rama `develop` de `https://github.com/edinsonvo/sportshub-c14`. Ante la falta de acceso a GitLab se creó ese repositorio público en GitHub y se reconnectaron los servicios de Render. La verificación posterior consiste en los smoke tests documentados: health del backend, frontend HTTP 200, métricas y login demo.
+El pipeline `azure-devops/azure-pipelines.yml` espeja `develop` a GitHub (`git push github HEAD:develop`) y Render despliega automáticamente porque `infra/render/render.yaml` define `autoDeploy: true` para ambos servicios web contra la rama `develop` de `https://github.com/edinsonvo/sportshub-c14`. Ante la falta de acceso a GitLab se creó ese repositorio público en GitHub y se reconnectaron los servicios de Render.
+
+### Resultado real del despliegue (2026-11-23)
+
+- Repositorio `edinsonvo/sportshub-c14`: ramas `main` y `develop` en `1785cbe`.
+- Render: `sporthub-c14-backend` y `sporthub-c14-frontend` conectados a GitHub `develop` y desplegando el commit `1785cbe`.
+- La BD gratuita original expiró; se creó `sporthub-db-v2` (PostgreSQL 18, Oregon) y se actualizaron las variables `DB_*` del backend. Los datos demo se regeneraron con `DEMO_DATA_SEED=true`.
+- Smoke tests ejecutados con éxito:
+  - `GET /api/v1/health` → 200 `{"service":"sporthub-backend","status":"UP"}`
+  - `GET /actuator/prometheus` → 200
+  - Frontend → 200
+  - `POST /api/v1/auth/login` con `admin@sporthub.co` / `password` → 200 con JWT
+  - `GET /api/v1/appointments/clients` con JWT → 200

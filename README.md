@@ -3,7 +3,7 @@
 > **Versión 1.0.0 — Fase 3** · Commit local de referencia: `59ddad7` · Rama de despliegue: `develop`
 
 Proyecto de la asignatura según el perfil **Avanzado**: código funcional, entorno operativo
-completo y despliegue automatizado con Azure DevOps, espejo en GitLab y Render.
+completo y despliegue automatizado con Azure DevOps, espejo en GitHub y Render.
 
 ## Versión actual
 
