@@ -55,7 +55,10 @@ curl -s -H "Authorization: Bearer $TOKEN" \
    - `JWT_SECRET` (≥32 bytes).
 4. Verificar health: `https://sporthub-c14-backend.onrender.com/api/v1/health`.
 5. El blueprint tiene `autoDeploy: true`: cada push a GitHub `develop` redespliega backend y frontend.
-   Los Deploy Hooks de Render (`RENDER_DEPLOY_HOOK_BACKEND`/`RENDER_DEPLOY_HOOK_FRONTEND`) son opcionales.
+   Además, el repo `edinsonvo/sportshub-c14` tiene dos webhooks de push (evento `push`) apuntando a los
+   Deploy Hooks privados de Render de backend y frontend, para garantizar el redespliegue automático.
+   Las variables `RENDER_DEPLOY_HOOK_BACKEND`/`RENDER_DEPLOY_HOOK_FRONTEND` siguen siendo opcionales
+   (útiles como alternativa para disparar despliegues desde CI).
 
 | Servicio | URL |
 |----------|-----|
